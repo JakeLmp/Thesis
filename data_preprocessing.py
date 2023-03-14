@@ -15,7 +15,7 @@ def evoked_pipeline(df, subject_no):
                         "P3", "CP1", "CP5", "P4", "CP2", "CP6", "O1", "Oz", "O2"]
 
     other_electrodes = list(set(electrodes) - set(good_electrodes))
-
+    
     # the three conditions in this dataset
     conditions = {'control': 0, 'script-related': 1, 'script-unrelated': 2}
 
@@ -27,6 +27,8 @@ def evoked_pipeline(df, subject_no):
     info = mne.create_info(ch_names = electrodes, 
                         sfreq = 500,
                         ch_types = 'eeg')
+    
+    info['bads'] = other_electrodes
 
     # create raw objects per-condition
     raws_conditions = [mne.io.RawArray(df[electrodes].transpose(), info) for df in dfs_conditions]
@@ -42,6 +44,12 @@ def evoked_pipeline(df, subject_no):
     # create evokeds object
     evokeds = epochs.average(by_event_type = True)
     evokeds = dict(zip(conditions.keys(), evokeds))
+
+    # Read and set the EEG electrode locations, for use with fsaverage's
+    # space (MNI space) for standard_1020:
+    montage = mne.channels.make_standard_montage('standard_1005') # 1005 is just higher-density 1020, unused electrode positions fall away
+    evoked.set_montage(montage)
+    evoked.set_eeg_reference(projection=True)  # needed for inverse modeling, is not applied to data here
 
     return evokeds
 

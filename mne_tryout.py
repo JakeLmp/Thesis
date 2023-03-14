@@ -23,9 +23,6 @@ evokeds = dict((i, evoked_pipeline(df_data, i)) for i in sorted(df_data['Subject
 # https://mne.tools/stable/auto_tutorials/forward/35_eeg_no_mri.html
 
 import os.path as op
-import numpy as np
-
-from mne.datasets import eegbci
 from mne.datasets import fetch_fsaverage
 
 # Download fsaverage files
@@ -35,41 +32,26 @@ subjects_dir = op.dirname(fs_dir)
 # The files live in:
 subject = 'fsaverage'
 trans = 'fsaverage'  # MNE has a built-in fsaverage transformation
-src = op.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif')
-bem = op.join(fs_dir, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif')
+src = op.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif') # source space
+bem = op.join(fs_dir, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif') # bem surfaces
 
 # using the first subject's control condition and info object,
-# this is just for metadata, no actual experimental data is used for forward operator
-raw = evokeds[2]['control']
-info = raw.info
-
-# Clean channel names to be able to use a standard 1005 montage
-new_names = dict(
-    (ch_name,
-     ch_name.rstrip('.').upper().replace('Z', 'z').replace('FP', 'Fp'))
-    for ch_name in raw.ch_names)
-raw.rename_channels(new_names)
-
-# Read and set the EEG electrode locations, which are already in fsaverage's
-# space (MNI space) for standard_1020:
-montage = mne.channels.make_standard_montage('standard_1005')
-raw.set_montage(montage)
-raw.set_eeg_reference(projection=True)  # needed for inverse modeling
-
+evoked = evokeds[2]['control']
+info = evoked.info
 
 
 
 # %% opens external window if executed as a jupyter code cell
 # Check that the locations of EEG electrodes is correct with respect to MRI
 mne.viz.plot_alignment(
-    raw.info, src=src, eeg=['original', 'projected'], trans=trans,
+    info, src=src, eeg=['original', 'projected'], trans=trans,
     show_axes=True, mri_fiducials=True, dig='fiducials')
 
 
 
 # %% 
 # set n_jobs = -1 to use all available cores for parallel processing
-fwd = mne.make_forward_solution(raw.info, trans=trans, src=src,
+fwd = mne.make_forward_solution(info, trans=trans, src=src,
                                 bem=bem, eeg=True, mindist=5.0, n_jobs=-1)
 
 
@@ -77,14 +59,14 @@ fwd = mne.make_forward_solution(raw.info, trans=trans, src=src,
 # %% Computing inverse solutions
 # https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
 
-evoked = evokeds[2]['control']
+# evoked = evokeds[5]['control']
 
 # Ad-hoc covariance matrix
 cov = mne.make_ad_hoc_cov(info)
 
 # inverse operator
 inv = mne.minimum_norm.make_inverse_operator(evoked.info, fwd, cov, 
-                                             loose=0.,              # loose=0. fixed orientations, loose=1. free orientations
+                                             loose=1.,              # loose=0. fixed orientations, loose=1. free orientations
                                              depth=0.8,             # how to weight (or normalize) the forward using a depth prior. default is 0.8
                                              verbose=True)
 
@@ -103,3 +85,5 @@ stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=Tr
 # %% opens external window if executed as jupyter code cell
 brain = stc.plot(figure=1, **kwargs)
 brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
+
+# %%
