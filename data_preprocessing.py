@@ -48,8 +48,9 @@ def evoked_pipeline(df, subject_no):
     # Read and set the EEG electrode locations, for use with fsaverage's
     # space (MNI space) for standard_1020:
     montage = mne.channels.make_standard_montage('standard_1005') # 1005 is just higher-density 1020, unused electrode positions fall away
-    evoked.set_montage(montage)
-    evoked.set_eeg_reference(projection=True)  # needed for inverse modeling, is not applied to data here
+    for evoked in evokeds.values():
+        evoked.set_montage(montage)
+        evoked.set_eeg_reference(projection=True)  # needed for inverse modeling, is not applied to data here
 
     return evokeds
 
