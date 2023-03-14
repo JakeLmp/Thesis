@@ -35,7 +35,8 @@ def evoked_pipeline(df, subject_no):
     del dfs_conditions
 
     # create epoch object per-condition
-    epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond]) for raw, cond in zip(raws_conditions, conditions.keys())]
+    # breakpoint()
+    epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond], preload=True).shift_time(-0.2, relative=False) for raw, cond in zip(raws_conditions, conditions.keys())]
     del raws_conditions
 
     # concatenate the per-condition epochs objects into a single object 
