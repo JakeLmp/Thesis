@@ -3,6 +3,20 @@ import pandas as pd
 import mne
 from data_preprocessing import evoked_pipeline
 
+# check if we're running in interactive python (notebook or IPython shell)
+# https://discourse.jupyter.org/t/find-out-if-my-code-runs-inside-a-notebook-or-jupyter-lab/6935/4
+try:
+    ip = get_ipython()
+    if ip is None:
+        # we have IPython installed but not running from IPython
+        interactive_mode = False
+    else:
+        interactive_mode = True
+except:
+    # We do not even have IPython installed
+    interactive_mode = False
+
+
 # %% select which dataset to use
 data_folder = 'C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\'
 
@@ -42,12 +56,11 @@ info = evokeds[sorted(evokeds.keys())[0]][0]['control'].info
 # Check that the locations of EEG electrodes is correct with respect to MRI
 
 # check if running in interactive python, skip if no
-try:
-    get_ipython
+if interactive_mode:
     mne.viz.plot_alignment(
             info, src=src, eeg=['original', 'projected'], trans=trans,
             show_axes=True, mri_fiducials=True, dig='fiducials')
-except:
+else:
     print("\nSkipping visualisation of montage\n")
 
 
@@ -62,7 +75,7 @@ fwd = mne.make_forward_solution(info, trans=trans, src=src,
 # https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
 
 i = 5
-evoked = evokeds[i][0]['control']
+evoked = evokeds[i][0]['script-unrelated']
 cov = evokeds[i][1]
 
 # inverse operator
@@ -86,11 +99,11 @@ stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=Tr
 # %% opens external window if executed as jupyter code cell
 
 # check if running in interactive python, skip if no
-try:
-    get_ipython
+if interactive_mode:
     brain = stc.plot(figure=1, **kwargs)
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
-except:
+
+else:
     print("\nSkipping visualisation of inverse result\n")
 
 # %%
