@@ -3,8 +3,6 @@ import pandas as pd
 import mne
 from data_preprocessing import evoked_pipeline
 
-
-
 # %% select which dataset to use
 data_folder = 'C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\'
 
@@ -35,21 +33,25 @@ trans = 'fsaverage'  # MNE has a built-in fsaverage transformation
 src = op.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif') # source space
 bem = op.join(fs_dir, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif') # bem surfaces
 
-# using the first subject's control condition and info object,
-evoked = evokeds[2]['control']
-info = evoked.info
+# using the first subject's info object, should work for every subject in dataset
+info = evokeds[sorted(evokeds.keys())[0]][0]['control'].info
 
 
 
 # %% opens external window if executed as a jupyter code cell
 # Check that the locations of EEG electrodes is correct with respect to MRI
-mne.viz.plot_alignment(
-    info, src=src, eeg=['original', 'projected'], trans=trans,
-    show_axes=True, mri_fiducials=True, dig='fiducials')
+
+# check if running in interactive python, skip if no
+try:
+    get_ipython
+    mne.viz.plot_alignment(
+            info, src=src, eeg=['original', 'projected'], trans=trans,
+            show_axes=True, mri_fiducials=True, dig='fiducials')
+except:
+    print("\nSkipping visualisation of montage\n")
 
 
-
-# %% 
+# %% make forward solution for this dataset
 # set n_jobs = -1 to use all available cores for parallel processing
 fwd = mne.make_forward_solution(info, trans=trans, src=src,
                                 bem=bem, eeg=True, mindist=5.0, n_jobs=-1)
@@ -59,10 +61,9 @@ fwd = mne.make_forward_solution(info, trans=trans, src=src,
 # %% Computing inverse solutions
 # https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
 
-# evoked = evokeds[5]['control']
-
-# Ad-hoc covariance matrix
-cov = mne.make_ad_hoc_cov(info)
+i = 5
+evoked = evokeds[i][0]['control']
+cov = evokeds[i][1]
 
 # inverse operator
 inv = mne.minimum_norm.make_inverse_operator(evoked.info, fwd, cov, 
@@ -83,7 +84,13 @@ stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=Tr
 
 
 # %% opens external window if executed as jupyter code cell
-brain = stc.plot(figure=1, **kwargs)
-brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
+
+# check if running in interactive python, skip if no
+try:
+    get_ipython
+    brain = stc.plot(figure=1, **kwargs)
+    brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
+except:
+    print("\nSkipping visualisation of inverse result\n")
 
 # %%

@@ -4,6 +4,19 @@ import mne
 
 # %% data pipeline from df to evoked
 def evoked_pipeline(df, subject_no):
+    """
+    Pipeline from raw EEG data to evoked objects
+
+    Args:
+    df : dataframe containing EEG trial data
+    subject_no : integer of subject of interest
+
+    Returns:
+    mne.Evoked object for each condition
+    mne.Covariance baseline covariance matrix for each epoch and condition
+    """
+
+
     # subselection of dataset --- rest of function only with data for this subject
     df_subject = df[df['Subject'] == subject_no]
 
@@ -34,13 +47,15 @@ def evoked_pipeline(df, subject_no):
     raws_conditions = [mne.io.RawArray(df[electrodes].transpose(), info) for df in dfs_conditions]
     del dfs_conditions
 
-    # create epoch object per-condition
-    # breakpoint()
+    # create epoch object per-condition, shift timelines so that events are at t=0
     epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond], preload=True).shift_time(-0.2, relative=False) for raw, cond in zip(raws_conditions, conditions.keys())]
     del raws_conditions
 
     # concatenate the per-condition epochs objects into a single object 
     epochs = mne.concatenate_epochs(epoch_conditions)
+
+    # compute covariance matrices
+    noise_cov_baseline = mne.compute_covariance(epochs, tmax=0)
 
     # create evokeds object
     evokeds = epochs.average(by_event_type = True)
@@ -53,7 +68,7 @@ def evoked_pipeline(df, subject_no):
         evoked.set_montage(montage)
         evoked.set_eeg_reference(projection=True)  # needed for inverse modeling, is not applied to data here
 
-    return evokeds
+    return evokeds, noise_cov_baseline
 
 if __name__ == '__main__':
     pass
