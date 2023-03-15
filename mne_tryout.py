@@ -3,27 +3,6 @@ import pandas as pd
 import mne
 from data_preprocessing import evoked_pipeline
 
-# check if we're running in interactive python (notebook or IPython shell)
-# https://discourse.jupyter.org/t/find-out-if-my-code-runs-inside-a-notebook-or-jupyter-lab/6935/4
-try:
-    from IPython import get_ipython
-    ip = get_ipython()
-    if ip is None:
-        # we have IPython installed but not running from IPython
-        interactive_mode = False
-    else:
-        from IPython.core.interactiveshell import InteractiveShell
-        format = InteractiveShell.instance().display_formatter.format
-        if len(format(_checkhtml, include="text/html")[0]):
-            # TODO: need to check for qtconsole here!
-            pass
-        else:
-            interactive_mode = False
-except:
-    # We do not even have IPython installed
-    interactive_mode = False
-
-
 # %% select which dataset to use
 data_folder = 'C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\'
 
@@ -63,11 +42,12 @@ info = evokeds[sorted(evokeds.keys())[0]][0]['control'].info
 # Check that the locations of EEG electrodes is correct with respect to MRI
 
 # check if running in interactive python, skip if no
-if interactive_mode:
+try:
+    get_ipython
     mne.viz.plot_alignment(
             info, src=src, eeg=['original', 'projected'], trans=trans,
             show_axes=True, mri_fiducials=True, dig='fiducials')
-else:
+except:
     print("\nSkipping visualisation of montage\n")
 
 
@@ -106,10 +86,11 @@ stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=Tr
 # %% opens external window if executed as jupyter code cell
 
 # check if running in interactive python, skip if no
-if interactive_mode:
+try:
+    get_ipython
     brain = stc.plot(figure=1, **kwargs)
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
-else:
+except:
     print("\nSkipping visualisation of inverse result\n")
 
 # %%
