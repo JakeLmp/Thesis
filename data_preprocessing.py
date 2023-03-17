@@ -11,9 +11,9 @@ def evoked_pipeline(df, subject_no):
     df : dataframe containing EEG trial data
     subject_no : integer of subject of interest
 
-    Returns:
-    mne.Evoked object for each condition
-    mne.Covariance baseline covariance matrix for each epoch and condition
+    Returns: tuple containing
+        - mne.Evoked object for each condition
+        - mne.Covariance baseline covariance matrix for each epoch and condition
     """
 
 
