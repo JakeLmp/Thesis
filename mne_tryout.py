@@ -6,6 +6,7 @@ from data_preprocessing import evoked_pipeline
 # check if we're running in interactive python (notebook or IPython shell)
 # https://discourse.jupyter.org/t/find-out-if-my-code-runs-inside-a-notebook-or-jupyter-lab/6935/4
 try:
+    # get_ipython() should be automatically available in any IPython shell/notebook, but not in other versions
     ip = get_ipython()
     if ip is None:
         # we have IPython installed but not running from IPython
