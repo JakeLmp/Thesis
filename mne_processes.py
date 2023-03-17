@@ -36,6 +36,15 @@ def forward_solution(info, mindist=5.0, n_jobs=-1):
     return fwd
 
 
+# putting this globally because it's constant anyway
+from mne.datasets import fetch_fsaverage
+import os.path as op
+
+# Download fsaverage files
+fs_dir = fetch_fsaverage(verbose=True)
+subjects_dir = op.dirname(fs_dir)
+
+
 def inverse_solution(evoked, cov, fwd):
     """
     Computing inverse solutions
@@ -50,13 +59,6 @@ def inverse_solution(evoked, cov, fwd):
         - abs() of mne.SourceEstimate object : absolute values of return value of mne.minimum_norm.apply_inverse
     """
 
-    from mne.datasets import fetch_fsaverage
-    import os.path as op
-
-    # Download fsaverage files
-    fs_dir = fetch_fsaverage(verbose=True)
-    subjects_dir = op.dirname(fs_dir)
-
     # inverse operator
     inv = mne.minimum_norm.make_inverse_operator(evoked.info, fwd, cov, 
                                                  loose=1.,              # loose=0. fixed orientations, loose=1. free orientations
@@ -66,9 +68,6 @@ def inverse_solution(evoked, cov, fwd):
     # apply inverse
     snr = 3.0
     lambda2 = 1.0 / snr ** 2
-    kwargs = dict(initial_time=0.08, hemi='lh', subjects_dir=subjects_dir,
-                size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
-                smoothing_steps=7)
 
     stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=True))
 
@@ -76,6 +75,7 @@ def inverse_solution(evoked, cov, fwd):
 
 
 if __name__ == '__main__':
+    import pandas as pd
     from data_preprocessing import evoked_pipeline
 
     # select which dataset to use
@@ -102,6 +102,10 @@ if __name__ == '__main__':
     stc = inverse_solution(evoked, cov, fwd)
 
     # %% assuming we're running in interactive mode
+    kwargs = dict(initial_time=0.08, hemi='lh', subjects_dir=subjects_dir,
+                size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
+                smoothing_steps=7)
+
     brain = stc.plot(figure=1, **kwargs)
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 # %%
