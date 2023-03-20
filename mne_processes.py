@@ -1,7 +1,15 @@
 # %% everything in a cell
 import mne
 
-def forward_solution(info, mindist=5.0, n_jobs=-1):
+# putting this globally because it's constant anyway
+from mne.datasets import fetch_fsaverage
+import os.path as op
+
+# Download fsaverage files
+fs_dir = fetch_fsaverage(verbose=True)
+subjects_dir = op.dirname(fs_dir)
+
+def forward_solution(info, mindist=5.0, n_jobs=-1, verbose=False):
     """
     Forward operator with template head MRI
     https://mne.tools/stable/auto_tutorials/forward/35_eeg_no_mri.html
@@ -18,10 +26,6 @@ def forward_solution(info, mindist=5.0, n_jobs=-1):
     from mne.datasets import fetch_fsaverage
     import os.path as op
 
-    # Download fsaverage files
-    fs_dir = fetch_fsaverage(verbose=True)
-    subjects_dir = op.dirname(fs_dir)
-
     # The files live in:
     subject = 'fsaverage'
     trans = 'fsaverage'  # MNE has a built-in fsaverage transformation
@@ -31,21 +35,12 @@ def forward_solution(info, mindist=5.0, n_jobs=-1):
     # make forward solution for this dataset
     # set n_jobs = -1 to use all available cores for parallel processing
     fwd = mne.make_forward_solution(info, trans=trans, src=src,
-                                    bem=bem, eeg=True, mindist=mindist, n_jobs=n_jobs)
+                                    bem=bem, eeg=True, mindist=mindist, n_jobs=n_jobs, verbose=verbose)
 
     return fwd
 
 
-# putting this globally because it's constant anyway
-from mne.datasets import fetch_fsaverage
-import os.path as op
-
-# Download fsaverage files
-fs_dir = fetch_fsaverage(verbose=True)
-subjects_dir = op.dirname(fs_dir)
-
-
-def inverse_solution(evoked, cov, fwd):
+def inverse_solution(evoked, cov, fwd, verbose=False):
     """
     Computing inverse solutions
     https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
@@ -63,13 +58,13 @@ def inverse_solution(evoked, cov, fwd):
     inv = mne.minimum_norm.make_inverse_operator(evoked.info, fwd, cov, 
                                                  loose=1.,              # loose=0. fixed orientations, loose=1. free orientations
                                                  depth=0.8,             # how to weight (or normalize) the forward using a depth prior. default is 0.8
-                                                 verbose=True)
+                                                 verbose=verbose)
 
     # apply inverse
     snr = 3.0
     lambda2 = 1.0 / snr ** 2
 
-    stc = abs(mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=True))
+    stc = mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=verbose)
 
     return stc
 

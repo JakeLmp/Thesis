@@ -1,9 +1,8 @@
-# %% imports
+# imports
 import pandas as pd
 import mne
 
-# %% data pipeline from df to evoked
-def evoked_pipeline(df, subject_no):
+def evoked_pipeline(df, subject_no, verbose=False):
     """
     Pipeline from raw EEG data to evoked objects
 
@@ -44,18 +43,18 @@ def evoked_pipeline(df, subject_no):
     info['bads'] = other_electrodes
 
     # create raw objects per-condition
-    raws_conditions = [mne.io.RawArray(df[electrodes].transpose(), info) for df in dfs_conditions]
+    raws_conditions = [mne.io.RawArray(df[electrodes].transpose(), info, verbose=verbose) for df in dfs_conditions]
     del dfs_conditions
 
     # create epoch object per-condition, shift timelines so that events are at t=0
-    epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond], preload=True).shift_time(-0.2, relative=False) for raw, cond in zip(raws_conditions, conditions.keys())]
+    epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond], preload=True, verbose=verbose).shift_time(-0.2, relative=False) for raw, cond in zip(raws_conditions, conditions.keys())]
     del raws_conditions
 
     # concatenate the per-condition epochs objects into a single object 
-    epochs = mne.concatenate_epochs(epoch_conditions)
+    epochs = mne.concatenate_epochs(epoch_conditions, verbose=verbose)
 
     # compute covariance matrices
-    noise_cov_baseline = mne.compute_covariance(epochs, tmax=0)
+    noise_cov_baseline = mne.compute_covariance(epochs, tmax=0, verbose=verbose)
 
     # create evokeds object
     evokeds = epochs.average(by_event_type = True)
@@ -65,14 +64,13 @@ def evoked_pipeline(df, subject_no):
     # space (MNI space) for standard_1020:
     montage = mne.channels.make_standard_montage('standard_1005') # 1005 is just higher-density 1020, unused electrode positions fall away
     for evoked in evokeds.values():
-        evoked.set_montage(montage)
-        evoked.set_eeg_reference(projection=True)  # needed for inverse modeling, is not applied to data here
+        evoked.set_montage(montage, verbose=verbose)
+        evoked.set_eeg_reference(projection=True, verbose=verbose)  # needed for inverse modeling, is not applied to data here
 
     return evokeds, noise_cov_baseline
 
 if __name__ == '__main__':
-    pass
-    # %% select which dataset to use
+    # select which dataset to use
     data_folder = 'C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\'
 
     f = data_folder + 'dbc_2019\\dbc_data.csv'
@@ -82,6 +80,6 @@ if __name__ == '__main__':
 
     df_data = pd.read_csv(f)
 
-    # %% run on df
+    # run on df
     evokeds = dict((i, evoked_pipeline(df_data, i)) for i in sorted(df_data['Subject'].unique()))
     print(evokeds[sorted(df_data['Subject'].unique())[0]])
