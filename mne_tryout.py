@@ -42,12 +42,50 @@ fwd = forward_solution(info)
 # %% Computing inverse solutions
 # https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
 
-i = 5
-evoked = evokeds[i][0]['script-related']
-cov = evokeds[i][1]
+i = list(evokeds.keys())[0] # first subject in set
+evoked, cov = evokeds[i]
 
-stc = inverse_solution(evoked, cov, fwd)
+condition = 'control'
+stc1 = inverse_solution(evoked[condition], cov, fwd)
 
+condition = 'script-related'
+stc2 = inverse_solution(evoked[condition], cov, fwd)
+
+condition = 'script-unrelated'
+stc3 = inverse_solution(evoked[condition], cov, fwd)
+
+
+# %% Group analysis prep
+from tqdm import tqdm
+from copy import deepcopy
+
+average_stcs = {'control':deepcopy(stc1), 'script-related':deepcopy(stc2), 'script-unrelated':deepcopy(stc3)}
+
+subjects = list(evokeds.keys())[1:] # we already have the first subject's stcs
+
+for condition in average_stcs.keys():
+    # add stcs of all subjects
+    for i in tqdm(subjects):
+        evoked, cov = evokeds[i]
+
+        stc = inverse_solution(evoked[condition], cov, fwd)
+
+        average_stcs[condition] += stc
+
+    # divide stc by nr of subjects
+    average_stcs[condition] = average_stcs[condition] / len(evokeds)
+
+# %% Get average stcs from saved files (NOT WORKING YET)
+
+# import os
+
+# stc_dir = os.path.abspath("C:\\Users\\Jakob\Downloads\\School - MSc\\Thesis\\Results\\")
+# average_stcs = {'control':None, 'script-related':None, 'script-unrelated':None}
+
+# for condition in average_stcs.keys():
+#     # we're only taking the left hemisphere (indicated by '-lh')
+#     fname = os.path.join(stc_dir, 'delogu_2019_average_stc_' + condition + '-lh.stc')
+#     average_stcs[condition] = mne.read_source_estimate(fname)
 
 
 # %% opens external window if executed as jupyter code cell
@@ -65,11 +103,15 @@ if interactive_mode:
                 size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
                 smoothing_steps=7)
     
-    brain = stc.plot(figure=1, **kwargs)
+    # kwargs = dict(initial_time=0.08, subjects_dir=subjects_dir,
+    #             size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
+    #             smoothing_steps=7, views='flat')
+    
+    # brain = average_stcs['script-unrelated'].plot(figure=1, **kwargs)
+    brain = stc3.plot(figure=1, **kwargs)
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 
 else:
     print("\nSkipping visualisation of inverse result\n")
-
 
 # %%
