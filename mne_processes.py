@@ -51,7 +51,7 @@ def inverse_solution(evoked, cov, fwd, verbose=False):
     fwd : mne.Forward object containing forward solution to use in inverse calculation
 
     Returns: 
-        - abs() of mne.SourceEstimate object : absolute values of return value of mne.minimum_norm.apply_inverse
+        - mne.SourceEstimate object : return value of mne.minimum_norm.apply_inverse
     """
 
     # inverse operator
