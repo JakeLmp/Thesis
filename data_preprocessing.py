@@ -32,7 +32,7 @@ def evoked_pipeline(df, subject_no, verbose=False):
     conditions = {'control': 0, 'script-related': 1, 'script-unrelated': 2}
 
     # split into per-condition dataframes
-    dfs_conditions = [df_subject[df_subject['Condition'] == cond] for cond in conditions.keys()]
+    dfs_conditions = dict((cond, df_subject[df_subject['Condition'] == cond]) for cond in conditions.keys())
     del df_subject
 
     # create info object
@@ -43,22 +43,32 @@ def evoked_pipeline(df, subject_no, verbose=False):
     info['bads'] = other_electrodes
 
     # create raw objects per-condition
-    raws_conditions = [mne.io.RawArray(df[electrodes].transpose(), info, verbose=verbose) for df in dfs_conditions]
+    raws_conditions = dict((cond, mne.io.RawArray(df[electrodes].transpose(), info, verbose=verbose)) 
+                                for cond, df in dfs_conditions.items())
     del dfs_conditions
 
     # create epoch object per-condition, shift timelines so that events are at t=0
-    epoch_conditions = [mne.make_fixed_length_epochs(raw, duration=1.4, id=conditions[cond], preload=True, verbose=verbose).shift_time(-0.2, relative=False) for raw, cond in zip(raws_conditions, conditions.keys())]
+    epoch_conditions = dict((cond, mne.make_fixed_length_epochs(raw, 
+                                                                duration=1.4, 
+                                                                id=conditions[cond],
+                                                                preload=True, 
+                                                                verbose=verbose).shift_time(-0.2, relative=False)) 
+                                                                    for cond, raw in raws_conditions.items())
     del raws_conditions
 
-    # concatenate the per-condition epochs objects into a single object 
-    epochs = mne.concatenate_epochs(epoch_conditions, verbose=verbose)
+    # data is already baseline corrected, but MNE apparently wants this really badly
+    for ep in epoch_conditions.values():
+        ep.apply_baseline(baseline=(None, 0), verbose=verbose) # use beginning of epoch up to and including 0s
 
-    # compute covariance matrices
-    noise_cov_baseline = mne.compute_covariance(epochs, tmax=0, verbose=verbose)
+    # compute covariance matrices ('auto' option commands automatic selection of best covariance estimator)
+    # one matrix per condition -> CHECK THAT
+    noise_cov = dict((cond, mne.compute_covariance(epochs, tmax=0, method='auto', verbose=verbose)) 
+                        for cond, epochs in epoch_conditions.items())
 
     # create evokeds object
-    evokeds = epochs.average(by_event_type = True)
-    evokeds = dict(zip(conditions.keys(), evokeds))
+    evokeds = dict((cond, epochs.average(by_event_type = False)) # only 1 event type in here 
+                        for cond, epochs in epoch_conditions.items())
+    del epoch_conditions
 
     # Read and set the EEG electrode locations, for use with fsaverage's
     # space (MNI space) for standard_1020:
@@ -67,7 +77,7 @@ def evoked_pipeline(df, subject_no, verbose=False):
         evoked.set_montage(montage, verbose=verbose)
         evoked.set_eeg_reference(projection=True, verbose=verbose)  # needed for inverse modeling, is not applied to data here
 
-    return evokeds, noise_cov_baseline
+    return dict((cond, [evokeds[cond], noise_cov[cond]]) for cond in conditions.keys())
 
 if __name__ == '__main__':
     # select which dataset to use
