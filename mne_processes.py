@@ -9,15 +9,15 @@ import os.path as op
 fs_dir = fetch_fsaverage(verbose=True)
 subjects_dir = op.dirname(fs_dir)
 
-def forward_solution(info, mindist=5.0, n_jobs=-1, verbose=False):
+def forward_solution(info, verbose=False, forward_kwargs=None):
     """
     Forward operator with template head MRI
     https://mne.tools/stable/auto_tutorials/forward/35_eeg_no_mri.html
 
     Args:
     info : mne.Info object containing channel names etc.
-    mindist : 5.0 : mindist argument of mne.make_forward_solution
-    n_jobs : -1 : n_jobs argument of mne.make_forward_solution
+    verbose : boolean, controls verbosity of forward solution method
+    forward_kwargs : dict : keyword arguments to be passed along to the mne.make_forward_solution method
 
     Returns:
         - mne.Forward object : return value of mne.make_forward_solution
@@ -34,13 +34,12 @@ def forward_solution(info, mindist=5.0, n_jobs=-1, verbose=False):
 
     # make forward solution for this dataset
     # set n_jobs = -1 to use all available cores for parallel processing
-    fwd = mne.make_forward_solution(info, trans=trans, src=src,
-                                    bem=bem, eeg=True, mindist=mindist, n_jobs=n_jobs, verbose=verbose)
+    fwd = mne.make_forward_solution(info, trans=trans, src=src, bem=bem, eeg=True, verbose=verbose, **forward_kwargs)
 
     return fwd
 
 
-def inverse_solution(evoked, cov, fwd, verbose=False):
+def inverse_solution(evoked, cov, fwd, verbose=False, make_inverse_kwargs=None, apply_inverse_kwargs=None):
     """
     Computing inverse solutions
     https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
@@ -49,6 +48,8 @@ def inverse_solution(evoked, cov, fwd, verbose=False):
     evoked : mne.Evoked object containing to-fit-on data
     cov : mne.Covariance object that is accessory to the provided evoked
     fwd : mne.Forward object containing forward solution to use in inverse calculation
+    make_inverse_kwargs : dict : keyword arguments to be passed along to the mne.minimum_norm.make_inverse_operator method
+    apply_inverse_kwargs : dict : keywords arguments to be passed along to the mne.minimum_norm.apply_inverse method
 
     Returns: 
         - mne.SourceEstimate object : return value of mne.minimum_norm.apply_inverse
@@ -56,15 +57,14 @@ def inverse_solution(evoked, cov, fwd, verbose=False):
 
     # inverse operator
     inv = mne.minimum_norm.make_inverse_operator(evoked.info, fwd, cov, 
-                                                 loose=1.,              # loose=0. fixed orientations, loose=1. free orientations
-                                                 depth=0.8,             # how to weight (or normalize) the forward using a depth prior. default is 0.8
-                                                 verbose=verbose)
+                                                 verbose=verbose,
+                                                 **make_inverse_kwargs)
 
     # apply inverse
     snr = 3.0
     lambda2 = 1.0 / snr ** 2
 
-    stc = mne.minimum_norm.apply_inverse(evoked, inv, lambda2, 'MNE', verbose=verbose)
+    stc = mne.minimum_norm.apply_inverse(evoked, inv, lambda2, verbose=verbose, **apply_inverse_kwargs)
 
     return stc
 
