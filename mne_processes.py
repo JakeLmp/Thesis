@@ -16,7 +16,7 @@ def forward_solution(info, verbose=False, forward_kwargs=None):
 
     Args:
     info : mne.Info object containing channel names etc.
-    verbose : boolean, controls verbosity of forward solution method
+    verbose : bool : controls verbosity of forward solution method
     forward_kwargs : dict : keyword arguments to be passed along to the mne.make_forward_solution method
 
     Returns:
@@ -39,7 +39,7 @@ def forward_solution(info, verbose=False, forward_kwargs=None):
     return fwd
 
 
-def inverse_solution(evoked, cov, fwd, verbose=False, make_inverse_kwargs=None, apply_inverse_kwargs=None):
+def inverse_solution(evoked, cov, fwd, snr=3.0, verbose=False, make_inverse_kwargs=None, apply_inverse_kwargs=None):
     """
     Computing inverse solutions
     https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
@@ -48,6 +48,8 @@ def inverse_solution(evoked, cov, fwd, verbose=False, make_inverse_kwargs=None, 
     evoked : mne.Evoked object containing to-fit-on data
     cov : mne.Covariance object that is accessory to the provided evoked
     fwd : mne.Forward object containing forward solution to use in inverse calculation
+    snr : float (3.0) : signal-to-noise ratio used in inverse operator application
+    verbose : bool : controls verbosity of output of mne methods
     make_inverse_kwargs : dict : keyword arguments to be passed along to the mne.minimum_norm.make_inverse_operator method
     apply_inverse_kwargs : dict : keywords arguments to be passed along to the mne.minimum_norm.apply_inverse method
 
@@ -61,9 +63,8 @@ def inverse_solution(evoked, cov, fwd, verbose=False, make_inverse_kwargs=None, 
                                                  **make_inverse_kwargs)
 
     # apply inverse
-    snr = 3.0
     lambda2 = 1.0 / snr ** 2
-
+    
     stc = mne.minimum_norm.apply_inverse(evoked, inv, lambda2, verbose=verbose, **apply_inverse_kwargs)
 
     return stc
