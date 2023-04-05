@@ -30,12 +30,12 @@ f = data_folder + 'dbc_2019\\dbc_data.csv'
 # f = data_folder + 'adbc23_data\\adbc23_erp.csv'       # aurnhammer 2023 
 
 df_data = pd.read_csv(f)
-evokeds = dict((i, evoked_pipeline(df_data, i)) for i in tqdm(sorted(df_data['Subject'].unique())))
+data = dict((i, evoked_pipeline(df_data, i)) for i in tqdm(sorted(df_data['Subject'].unique())))
 
 
 
 # %% Forward operator with template head MRI
-info = evokeds[sorted(evokeds.keys())[0]]['control'][0].info
+info = data[sorted(data.keys())[0]]['control'].info
 
 fwd_kwargs = dict(mindist=5.0, 
                   n_jobs=-1)
@@ -46,24 +46,33 @@ fwd = forward_solution(info, forward_kwargs=fwd_kwargs)
 # %% Computing inverse solutions
 # https://mne.tools/stable/auto_tutorials/inverse/40_mne_fixed_free.html#free-orientation
 
-make_inverse_kwargs = dict(loose=1.,              # loose=0. fixed orientations, loose=1. free orientations
-                           depth=0.8,             # how to weight (or normalize) the forward using a depth prior. default is 0.8
+make_inverse_kwargs = dict(loose=0.2,    # loose=0. fixed orientations, loose=1. free orientations
+                           depth=2,     # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
                            )
-apply_inverse_kwargs = dict(method='MNE')
+apply_inverse_kwargs = dict(method='dSPM')
 
-i = list(evokeds.keys())[0] # first subject in set
-# i = 5
+# i = list(data.keys())[0] # first subject in set
+i = 5
 
 condition = 'control'
-evoked, cov = evokeds[i][condition]
+evoked, cov = data[i][condition], data[i]['noise_covariance']
 stc1 = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
 
+# apply_inverse_kwargs = dict(method='dSPM')
+# stc_dspm = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
+# apply_inverse_kwargs = dict(method='sLORETA')
+# stc_slor = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
+# apply_inverse_kwargs = dict(method='eLORETA')
+# stc_elor = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
+
+# apply_inverse_kwargs = dict(method='MNE')
+
 condition = 'script-related'
-evoked, cov = evokeds[i][condition]
+evoked, cov = data[i][condition], data[i]['noise_covariance']
 stc2 = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
 
 condition = 'script-unrelated'
-evoked, cov = evokeds[i][condition]
+evoked, cov = data[i][condition], data[i]['noise_covariance']
 stc3 = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
 
 
@@ -75,19 +84,19 @@ average_stcs = {'control':deepcopy(stc1),
                 'script-related':deepcopy(stc2), 
                 'script-unrelated':deepcopy(stc3)}
 
-subjects = list(evokeds.keys())[1:] # we already have the first subject's stcs
+subjects = list(data.keys())[1:] # we already have the first subject's stcs
 
 for condition in average_stcs.keys():
     # add stcs of all subjects
     for i in tqdm(subjects):
-        evoked, cov = evokeds[i][condition]
+        evoked, cov = data[i][condition], data[i]['noise_covariance']
 
         stc = inverse_solution(evoked, cov, fwd, make_inverse_kwargs=make_inverse_kwargs, apply_inverse_kwargs=apply_inverse_kwargs)
 
         average_stcs[condition] += stc
 
     # divide stc by nr of subjects
-    average_stcs[condition] = average_stcs[condition] / len(evokeds)
+    average_stcs[condition] = average_stcs[condition] / len(data)
 
 
 # %%
@@ -119,17 +128,21 @@ if interactive_mode:
     fs_dir = fetch_fsaverage(verbose=True)
     subjects_dir = op.dirname(fs_dir)
 
-    kwargs = dict(initial_time=0.08, hemi='lh', subjects_dir=subjects_dir,
+    kwargs = dict(initial_time=0.0, hemi='lh', subjects_dir=subjects_dir,
                 size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
                 smoothing_steps=7)
-    
+     
     # kwargs = dict(initial_time=0.08, subjects_dir=subjects_dir,
     #             size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
     #             smoothing_steps=7, views='flat')
     
-    
-    brain = stc2.plot(figure=1, **kwargs)
-    brain = stc3.plot(figure=2, **kwargs)
+    i=1
+    # brain = stc1.plot(figure=i, **kwargs); i+=1
+    brain = stc2.plot(figure=i, **kwargs); i+=1
+    brain = stc3.plot(figure=i, **kwargs); i+=1
+    # brain = stc_dspm.plot(figure=i, **kwargs); i+=1
+    # brain = stc_slor.plot(figure=i, **kwargs); i+=1
+    # brain = stc_elor.plot(figure=i, **kwargs); i+=1
 
     # brain = average_stcs['script-unrelated'].plot(figure=1, **kwargs)
     # brain = average_stcs['script-related'].plot(figure=2, **kwargs)

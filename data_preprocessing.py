@@ -60,10 +60,13 @@ def evoked_pipeline(df, subject_no, verbose=False):
     for ep in epoch_conditions.values():
         ep.apply_baseline(baseline=(None, 0), verbose=verbose) # use beginning of epoch up to and including 0s
 
-    # compute covariance matrices ('auto' option commands automatic selection of best covariance estimator)
-    # one matrix per condition -> CHECK THAT
-    noise_cov = dict((cond, mne.compute_covariance(epochs, tmax=0, method='auto', verbose=verbose)) 
-                        for cond, epochs in epoch_conditions.items())
+    # compute covariance matrix ('auto' option commands automatic selection of best covariance estimator)
+    # noise matrix is calculated on pre-stimulus interval, which is condition-independent brain activity
+    # concatenate the per-condition epochs objects into a single object 
+    epochs_concat = mne.concatenate_epochs(list(epoch_conditions.values()), verbose=verbose)
+    noise_cov = mne.compute_covariance(epochs_concat, tmax=0, method='auto', verbose=verbose)
+
+    breakpoint()
 
     # create evokeds object
     evokeds = dict((cond, epochs.average(by_event_type = False)) # only 1 event type in here 
@@ -77,7 +80,11 @@ def evoked_pipeline(df, subject_no, verbose=False):
         evoked.set_montage(montage, verbose=verbose)
         evoked.set_eeg_reference(projection=True, verbose=verbose)  # needed for inverse modeling, is not applied to data here
 
-    return dict((cond, [evokeds[cond], noise_cov[cond]]) for cond in conditions.keys())
+    # add the noise covariance to the dict
+    data = evokeds
+    data['noise_covariance'] = noise_cov
+
+    return data
 
 if __name__ == '__main__':
     # select which dataset to use
