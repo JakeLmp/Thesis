@@ -72,36 +72,51 @@ def inverse_solution(evoked, cov, fwd, snr=3.0, verbose=False, make_inverse_kwar
 
 if __name__ == '__main__':
     import pandas as pd
-    from data_preprocessing import evoked_pipeline
+    import os
+    import pickle
 
     # select which dataset to use
-    data_folder = 'C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\'
+    data_folder = os.path.join(os.getcwd(), 'data', 'processed_evokeds')
 
-    f = data_folder + 'dbc_2019\\dbc_data.csv'
-    # f = data_folder + 'dbc_2021\\dbc_data.csv'
-    # f = data_folder + 'aurn_2021\\observed\\CAPExp.csv'  # aurnhammer EEG epochs
-    # f = data_folder + 'aurn_2021\\observed\\CAPSPR.csv'  # aurnhammer reading times
+    file_locs = {
+        'del2019':os.path.join(data_folder, 'del2019' + '.pickle'),         # delogu 2019
+        'del2021':os.path.join(data_folder, 'del2021' + '.pickle'),         # delogu 2021
+        'aurn2021':os.path.join(data_folder, 'aurn2021' + '.pickle'),       # aurnhammer 2021 EEG epochs
+        'aurn2023':os.path.join(data_folder, 'aurn2023' + '.pickle')        # aurnhammer 2023
+    }
 
-    df_data = pd.read_csv(f)
+    # check if output directory already exists. if not, make it
+    output_folder = os.path.join(os.getcwd(), 'data', 'forward_solutions')
+    if not os.path.isdir(output_folder):
+        os.mkdir(output_folder)
 
-    # run on df
-    evokeds = dict((i, evoked_pipeline(df_data, i)) for i in sorted(df_data['Subject'].unique()))
-    
-    # get forward operator
-    fwd = forward_solution(info = evokeds[sorted(evokeds.keys())[0]][0]['control'].info)
+    # loop through datasets, process if available
+    for key, path in file_locs.items():
+        try:
+            # import the processed data
+            print(f'Importing data for {key}...')
+            with open(path, 'rb') as f:
+                data = pickle.load(f)
+            
+            # first subject's first condition info object
+            first_subject = sorted(data.keys())[0]
+            first_condition = list(data[first_subject].keys())[0]
+            info = data[first_subject][first_condition].info
 
-    # get inverse solution
-    i = 5
-    evoked = evokeds[i][0]['script-unrelated']
-    cov = evokeds[i][1]
+            # forward operator kwargs
+            fwd_kwargs = dict(mindist=5.0, 
+                            n_jobs=-1)    # set n_jobs = -1 to use all available cores for parallel processing
 
-    stc = inverse_solution(evoked, cov, fwd)
+            # get forward operator
+            print(f'Calculating forward solution for {key}...')
+            fwd = forward_solution(info, forward_kwargs=fwd_kwargs)
 
-    # %% assuming we're running in interactive mode
-    kwargs = dict(initial_time=0.08, hemi='lh', subjects_dir=subjects_dir,
-                size=(600, 600), clim=dict(kind='percent', lims=[90, 95, 99]),
-                smoothing_steps=7)
-
-    brain = stc.plot(figure=1, **kwargs)
-    brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
-# %%
+            # write to file
+            output_file = os.path.join(output_folder, key + '-fwd.fif')
+            print(f'Writing forward solution to file {output_file} ...')
+            mne.write_forward_solution(output_file, fwd, overwrite=True)
+        
+        except Exception as e:
+            print("Exception occurred:")
+            print(e)
+            print(f"Skipping forward solution with key {key} ...")

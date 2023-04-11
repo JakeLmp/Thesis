@@ -93,14 +93,13 @@ if __name__ == '__main__':
 
 
     # select data folder
-    data_folder = os.path.abspath('C:\\Users\\Jakob\\Downloads\\School - MSc\\Thesis\\Data\\')
+    data_folder = os.path.join(os.getcwd(), 'data')
 
     # CSV file locations
     file_locs = {
         'del2019':os.path.join(data_folder, 'dbc2019data', 'dbc_data.csv'),                        # delogu 2019
         'del2021':os.path.join(data_folder, 'dbc2021data', 'dbc_data.csv'),                        # delogu 2021
         'aurn2021':os.path.join(data_folder, 'PLOSONE21lmerERP_ObservedData', 'CAPExp.csv'),       # aurnhammer 2021 EEG epochs
-        # 'aurn2021b':os.path.join(data_folder, 'PLOSONE21lmerERP_ObservedData', 'CAPSPR.csv'),   # aurnhammer 2021 reading times
         'aurn2023':os.path.join(data_folder, 'adbc23_data', 'adbc23_erp.csv')                      # aurnhammer 2023
     }
 
@@ -115,6 +114,7 @@ if __name__ == '__main__':
             # import the df
             print(f"Importing dataset {key}...")
             df_data = pd.read_csv(path)
+            
             # run evoked calc on df
             print("Processing evokeds...")
             data = dict((i, evoked_pipeline(df_data, i, electrodes, other_electrodes)) for i in tqdm(sorted(df_data['Subject'].unique())))
