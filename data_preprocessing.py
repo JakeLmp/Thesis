@@ -11,7 +11,7 @@ def evoked_pipeline(df, subject_no, all_electrodes, bad_electrodes, verbose=Fals
     subject_no : integer of subject of interest
     all_electrodes : list of str : list of electrode names present in the header of df
     bad_electrodes : list of str : list of electrode names that should not be considered good data
-    verbose : bool (default False) : 
+    verbose : bool (default False) : controls verbosity of MNE methods
 
     Returns: dict containing
         - mne.Evoked object for this subject, for each condition
