@@ -25,7 +25,7 @@ except:
 
 # Manually select the key of the dataset to use
 # available keys: del2019, del2021, aurn2021, aurn2023
-dataset_key = 'del2019'
+dataset_key = 'del2021'
 
 file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
 
@@ -48,7 +48,7 @@ first_subject = sorted(data.keys())[0]
 conditions = list(set(data[first_subject].keys()) - {'noise_covariance'})
 
 # kwargs for mne.minimum_norm.make_inverse_operator and mne.minimum_norm.apply_inverse
-make_inverse_kwargs = dict(loose=0.8,       # loose=0. fixed orientations, loose=1. free orientations
+make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1. free orientations
                            depth=2,         # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
                            )
 apply_inverse_kwargs = dict(method='dSPM')
@@ -106,9 +106,10 @@ for subject_stcs in stc_worker:
 
 # %%
 # Relevant time windows
-# N400_window = (.300, .500) # most commonly seen in my literature review
-P600_window = (.500, .800) # 500 ms as a start is common, end of window debatable
-N400_window = (.350, .450)
+N400_window = (.300, .500)      # most commonly seen in my literature review
+# N400_window = (.350, .450)      # narrow N400 window
+P600_window = (.600, .800)      # 500 ms as a start is common, end of window debatable
+# P600_window = (.600, 1.)        # broad P600 window
 
 # crop the stcs to the specified windows, then take the mean activation
 # do this on a copy, so we don't have to recalculate the average activations
@@ -119,6 +120,39 @@ P600_average = dict((cond, stc.copy().crop(tmin=P600_window[0],
                                            tmax=P600_window[1]).mean())
                         for cond, stc in average_stcs.items())
 
+
+
+# %%
+# Print the condition keywords for this dataset 
+# ('noise_covariance' is not one of them)
+print(data[first_subject].keys())
+
+# %%
+# Define your contrasts here
+A = 'baseline'
+B = 'plausible'
+C = 'implausible'
+
+c1, c2 = A, B
+comp = N400_average
+x = comp[c2] - comp[c1]     # this does the contrast
+x += x.data.min()           # we can't see negative magnitude, how do we fix that?
+
+association_1 = x
+
+c1, c2 = A, C
+comp = N400_average
+x = comp[c2] - comp[c1]
+x += x.data.min()
+
+association_2 = x
+
+c1, c2 = C, B
+comp = P600_average
+x = comp[c2] - comp[c1]
+x += x.data.min()
+
+plausibility = x
 
 
 
@@ -140,15 +174,12 @@ if interactive_mode:
     
     # this is where you select what to visualise 
     # change the stc object to whatever you want to see
-    A = 'control'
-    B = 'script-related'
-    C = 'script-unrelated'
 
     i=1
-    brain = (N400_average[B] - N400_average[A]).plot(figure=i, **kwargs); i+=1
-    brain = (N400_average[C] - N400_average[A]).plot(figure=i, **kwargs); i+=1
-    brain = (P600_average[B] - P600_average[A]).plot(figure=i, **kwargs); i+=1
-    brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
+    brain = association_1.plot(figure=i, **kwargs); i+=1
+    brain = association_2.plot(figure=i, **kwargs); i+=1
+    brain = plausibility.plot(figure=i, **kwargs); i+=1
+    # brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
     
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 
