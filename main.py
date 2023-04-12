@@ -38,69 +38,12 @@ file_loc = os.path.join(os.getcwd(), 'data', 'forward_solutions', dataset_key + 
 fwd = mne.read_forward_solution(file_loc)
 
 
+# lastly, the average source estimate
+file_loc = os.path.join(os.getcwd(), 'data', 'source_estimates', dataset_key + '.stc_dict.pickle')
 
+with open(file_loc, 'rb') as f:
+    average_stcs = pickle.load(f)
 
-# %%
-# Calculating Source Time Courses
-
-# all conditions in this dataset
-first_subject = sorted(data.keys())[0]
-conditions = list(set(data[first_subject].keys()) - {'noise_covariance'})
-
-# kwargs for mne.minimum_norm.make_inverse_operator and mne.minimum_norm.apply_inverse
-make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1. free orientations
-                           depth=2,         # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
-                           )
-apply_inverse_kwargs = dict(method='dSPM')
-
-SNR = 3.0
-
-# generator function, so we can halt calculation of stcs to preserve memory
-def stc_task():
-    # for all subjects
-    for i, val in data.items():
-        stc_conditions = []
-        # for all conditions
-        for cond in conditions:
-            # get the evoked for this condition, and the covariance matrix
-            evoked, cov = val[cond], val['noise_covariance']
-            # append source time course (taking the abs() means we're only looking at magnitude)
-            stc_conditions.append(abs(inverse_solution(evoked, cov, fwd, 
-                                        snr=SNR, 
-                                        make_inverse_kwargs=make_inverse_kwargs, 
-                                        apply_inverse_kwargs=apply_inverse_kwargs)))
-        
-        # halt rest of loop to reduce memory demand
-        yield dict(zip(conditions, stc_conditions))
-
-
-# --- HOW TO USE THE WORKER : average stc over subjects example ---
-
-# create stc worker function
-stc_worker = stc_task()
-
-# number of subjects
-N = len(data.keys())
-
-# initialise average stc dict (placing the first subject's stcs in there)
-average_stcs = next(stc_worker)
-
-# divide by N to get actual contribution to the average
-for cond, stc in average_stcs.items():
-    stc = stc/N
-
-# it's nice to know how long this takes
-from tqdm import tqdm
-pbar = tqdm(total = N-1)
-
-# for all remaining subjects
-for subject_stcs in stc_worker:
-    # for all condition/stc pairs
-    for cond, stc in average_stcs.items():
-        # add contribution to average
-        stc += subject_stcs[cond]/N     # maybe not good practice to alter the elements we're looping over, but it works and I don't care
-
-    pbar.update(1)
 
 
 
@@ -125,6 +68,7 @@ P600_average = dict((cond, stc.copy().crop(tmin=P600_window[0],
 # %%
 # Print the condition keywords for this dataset 
 # ('noise_covariance' is not one of them)
+first_subject = list(data.keys())[0]
 print(data[first_subject].keys())
 
 # %%

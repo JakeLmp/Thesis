@@ -70,6 +70,40 @@ def inverse_solution(evoked, cov, fwd, snr=3.0, verbose=False, make_inverse_kwar
     return stc
 
 
+
+
+# kwargs for mne.minimum_norm.make_inverse_operator and mne.minimum_norm.apply_inverse
+make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1. free orientations
+                           depth=2,         # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
+                           )
+apply_inverse_kwargs = dict(method='dSPM')
+
+SNR = 3.0
+
+# generator function, so we can halt calculation of stcs to preserve memory
+def stc_task(data):
+    # all conditions in this dataset
+    first_subject = sorted(data.keys())[0]
+    conditions = list(set(data[first_subject].keys()) - {'noise_covariance'})
+
+    # for all subjects
+    for i, val in data.items():
+        stc_conditions = []
+        # for all conditions
+        for cond in conditions:
+            # get the evoked for this condition, and the covariance matrix
+            evoked, cov = val[cond], val['noise_covariance']
+            # append source time course (taking the abs() means we're only looking at magnitude)
+            stc_conditions.append(abs(inverse_solution(evoked, cov, fwd, 
+                                        snr=SNR, 
+                                        make_inverse_kwargs=make_inverse_kwargs, 
+                                        apply_inverse_kwargs=apply_inverse_kwargs)))
+        
+        # halt rest of loop to reduce memory demand
+        yield dict(zip(conditions, stc_conditions))
+
+
+
 if __name__ == '__main__':
     import pandas as pd
     import os
@@ -86,9 +120,13 @@ if __name__ == '__main__':
     }
 
     # check if output directory already exists. if not, make it
-    output_folder = os.path.join(os.getcwd(), 'data', 'forward_solutions')
-    if not os.path.isdir(output_folder):
-        os.mkdir(output_folder)
+    forward_output_folder = os.path.join(os.getcwd(), 'data', 'forward_solutions')
+    if not os.path.isdir(forward_output_folder):
+        os.mkdir(forward_output_folder)
+
+    stc_output_folder = os.path.join(os.getcwd(), 'data', 'source_estimates')
+    if not os.path.isdir(stc_output_folder):
+        os.mkdir(stc_output_folder)
 
     # loop through datasets, process if available
     for key, path in file_locs.items():
@@ -97,7 +135,7 @@ if __name__ == '__main__':
             print(f'Importing data for {key}...')
             with open(path, 'rb') as f:
                 data = pickle.load(f)
-            
+
             # first subject's first condition info object
             first_subject = sorted(data.keys())[0]
             first_condition = list(data[first_subject].keys())[0]
@@ -111,11 +149,46 @@ if __name__ == '__main__':
             print(f'Calculating forward solution for {key}...')
             fwd = forward_solution(info, forward_kwargs=fwd_kwargs)
 
-            # write to file
-            output_file = os.path.join(output_folder, key + '-fwd.fif')
-            print(f'Writing forward solution to file {output_file} ...')
-            mne.write_forward_solution(output_file, fwd, overwrite=True)
-        
+            # write forward solution to file
+            forward_output_file = os.path.join(forward_output_folder, key + '-fwd.fif')
+            print(f'Writing forward solution to file {forward_output_file} ...')
+            mne.write_forward_solution(forward_output_file, fwd, overwrite=True)
+
+            # create stc worker function
+            stc_worker = stc_task(data)
+
+            # number of subjects
+            N = len(data.keys())
+
+            # initialise average stc dict (placing the first subject's stcs in there)
+            print("Calculating first subject's source estimate...")
+            average_stcs = next(stc_worker)
+
+            # divide by N to get actual contribution to the average
+            for cond, stc in average_stcs.items():
+                stc = stc/N
+
+            print("Calculating remaining source estimates...")
+
+            # it's nice to know how long this takes
+            from tqdm import tqdm
+            pbar = tqdm(total = N-1)
+
+            # for all remaining subjects
+            for subject_stcs in stc_worker:
+                # for all condition/stc pairs
+                for cond, stc in average_stcs.items():
+                    # add contribution to average
+                    stc += subject_stcs[cond]/N     # maybe not good practice to alter the elements we're looping over, but it works and I don't care
+
+                pbar.update(1)
+
+            # write source estimate/time course dictionary to file
+            stc_output_file = os.path.join(stc_output_folder, key + '.stc_dict.pickle')
+            print(f'Writing source time course to file {stc_output_file}')
+            with open(stc_output_file, 'wb') as f:
+                pickle.dump(stc, f)
+
         except Exception as e:
             print("Exception occurred:")
             print(e)
