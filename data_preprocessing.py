@@ -2,21 +2,33 @@
 import pandas as pd
 import mne
 
-def evoked_pipeline(df, subject_no, all_electrodes, bad_electrodes, verbose=False):
+def evoked_pipeline(df, subject_no, good_electrodes, verbose=False):
     """
     Pipeline from raw EEG data to evoked objects
 
     Args:
     df : dataframe containing EEG trial data
     subject_no : integer of subject of interest
-    all_electrodes : list of str : list of electrode names present in the header of df
-    bad_electrodes : list of str : list of electrode names that should not be considered good data
+    good_electrodes : list of str : list of electrode names that should be considered good data
     verbose : bool (default False) : controls verbosity of MNE methods
 
     Returns: dict containing
         - mne.Evoked object for this subject, for each condition
         - mne.Covariance baseline covariance matrix for this subject
     """
+
+    # all possible channel names in the intended datasets
+    electrode_names = ['AFz','C3','C4','CP1','CP2','CP5','CP6','Cz','F3',
+                       'F4','F7','F8','FC1','FC2','FC5','FC6','Fp1','Fp2',
+                       'Fz','O1','O2','Oz','P3','P4','P7','P8','PO10','PO9',
+                       'Pz','T7','T8','TP10','TP9']
+    
+    # all channels present in this dataset
+    all_electrodes = list(set(df.columns) & set(electrode_names))
+
+    # all channels that should NOT be considered good data
+    bad_electrodes = list(set(all_electrodes) - set(good_electrodes))
+
 
     # the conditions in this dataset (enumerate in dict like 'condition':i)
     conditions = dict((cond, i) for i, cond in enumerate(df['Condition'].unique()))
@@ -82,16 +94,6 @@ if __name__ == '__main__':
     import pickle
     from tqdm import tqdm
 
-    # define channel names --- SHOULD THIS BE HARD-CODED??? --- it shouldnt, not the same set for each dataset
-    electrodes = ['Fp1','Fp2','F7','F3','Fz','F4','F8','FC5','FC1','FC2','FC6',
-                'T7','C3','Cz','C4','T8','TP9','CP5','CP1','CP2','CP6','TP10',
-                    'P7','P3','Pz','P4','P8','PO9','O1','Oz','O2']
-    good_electrodes = ["Fz", "Cz", "Pz", "F3", "FC1", "FC5", "F4", "FC2", "FC6",
-                        "P3", "CP1", "CP5", "P4", "CP2", "CP6", "O1", "Oz", "O2"]
-
-    other_electrodes = list(set(electrodes) - set(good_electrodes))
-
-
     # select data folder
     data_folder = os.path.join(os.getcwd(), 'data')
 
@@ -103,11 +105,28 @@ if __name__ == '__main__':
         'aurn2023':os.path.join(data_folder, 'adbc23_data', 'adbc23_erp.csv')                      # aurnhammer 2023
     }
 
+    # define 'good' channel names (taken from papers)
+    # only these channels will be considered in the resulting Evokeds
+    good_electrodes = {
+        'del2019': ["Fz", "Cz", "Pz", "F3", "FC1", "FC5", "F4", "FC2", "FC6",
+                    "P3", "CP1", "CP5", "P4", "CP2", "CP6", "O1", "Oz", "O2"],
+        'del2021': ["F3" , "Fz", "F4", "FC5", "FC1", "FC2", "FC6", "C3",  "Cz", "C4",
+                    "CP5", "CP1", "CP2", "CP6", "P3","Pz", "P4", "O1",  "Oz", "O2"],
+        'aurn2021':["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
+                    "FC1", "FC2", "FC6", "C3", "Cz", "C4", "CP5", "CP1",
+                    "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1",
+                    "Oz", "O2"],
+        'aurn2023': ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
+                     "FC1", "FC2", "FC6", "C3", "Cz", "C4", "CP5", "CP1",
+                     "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1",
+                     "Oz", "O2"]
+    }
+
     # check if output directory already exists. if not, make it
     output_folder = os.path.join(data_folder, 'processed_evokeds')
     if not os.path.isdir(output_folder):
         os.mkdir(output_folder)
-    
+
     # loop through datasets, process if available
     for key, path in file_locs.items():
         try:
@@ -117,7 +136,7 @@ if __name__ == '__main__':
             
             # run evoked calc on df
             print("Processing evokeds...")
-            data = dict((i, evoked_pipeline(df_data, i, electrodes, other_electrodes)) for i in tqdm(sorted(df_data['Subject'].unique())))
+            data = dict((i, evoked_pipeline(df_data, i, good_electrodes[key])) for i in tqdm(sorted(df_data['Subject'].unique())))
 
             # pickle the data dict
             output_file = os.path.join(output_folder, key + '.pickle')
