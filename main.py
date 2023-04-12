@@ -48,7 +48,7 @@ first_subject = sorted(data.keys())[0]
 conditions = list(set(data[first_subject].keys()) - {'noise_covariance'})
 
 # kwargs for mne.minimum_norm.make_inverse_operator and mne.minimum_norm.apply_inverse
-make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1. free orientations
+make_inverse_kwargs = dict(loose=0.8,       # loose=0. fixed orientations, loose=1. free orientations
                            depth=2,         # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
                            )
 apply_inverse_kwargs = dict(method='dSPM')
@@ -74,7 +74,7 @@ def stc_task():
         yield dict(zip(conditions, stc_conditions))
 
 
-# --- HOW TO USE THE WORKER : average stc example ---
+# --- HOW TO USE THE WORKER : average stc over subjects example ---
 
 # create stc worker function
 stc_worker = stc_task()
@@ -98,12 +98,26 @@ for subject_stcs in stc_worker:
     # for all condition/stc pairs
     for cond, stc in average_stcs.items():
         # add contribution to average
-        stc += subject_stcs[cond]/N
+        stc += subject_stcs[cond]/N     # maybe not good practice to alter the elements we're looping over, but it works and I don't care
 
     pbar.update(1)
 
 
 
+# %%
+# Relevant time windows
+# N400_window = (.300, .500) # most commonly seen in my literature review
+P600_window = (.500, .800) # 500 ms as a start is common, end of window debatable
+N400_window = (.350, .450)
+
+# crop the stcs to the specified windows, then take the mean activation
+# do this on a copy, so we don't have to recalculate the average activations
+N400_average = dict((cond, stc.copy().crop(tmin=N400_window[0], 
+                                           tmax=N400_window[1]).mean())
+                        for cond, stc in average_stcs.items())
+P600_average = dict((cond, stc.copy().crop(tmin=P600_window[0], 
+                                           tmax=P600_window[1]).mean())
+                        for cond, stc in average_stcs.items())
 
 
 
@@ -126,11 +140,18 @@ if interactive_mode:
     
     # this is where you select what to visualise 
     # change the stc object to whatever you want to see
+    A = 'control'
+    B = 'script-related'
+    C = 'script-unrelated'
+
     i=1
-    brain = average_stcs['script-unrelated'].plot(figure=i, **kwargs); i+=1
-    brain = average_stcs['script-related'].plot(figure=i, **kwargs); i+=1
+    brain = (N400_average[B] - N400_average[A]).plot(figure=i, **kwargs); i+=1
+    brain = (N400_average[C] - N400_average[A]).plot(figure=i, **kwargs); i+=1
+    brain = (P600_average[B] - P600_average[A]).plot(figure=i, **kwargs); i+=1
+    brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
     
     brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 
 else:
     print("\nSkipping visualisation of inverse result\n")
+# %%
