@@ -187,7 +187,7 @@ if __name__ == '__main__':
             stc_output_file = os.path.join(stc_output_folder, key + '.stc_dict.pickle')
             print(f'Writing source time course to file {stc_output_file}')
             with open(stc_output_file, 'wb') as f:
-                pickle.dump(stc, f)
+                pickle.dump(subject_stcs, f)
 
         except Exception as e:
             print("Exception occurred:")
