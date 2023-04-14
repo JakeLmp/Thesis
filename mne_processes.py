@@ -73,7 +73,7 @@ def inverse_solution(evoked, cov, fwd, snr=3.0, verbose=False, make_inverse_kwar
 
 
 # kwargs for mne.minimum_norm.make_inverse_operator and mne.minimum_norm.apply_inverse
-make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1. free orientations
+make_inverse_kwargs = dict(loose=0.2,       # loose=0. fixed orientations, loose=1.0 free orientations. default is 0.2
                            depth=2,         # how to weight (or normalize) the forward using a depth prior. default is 0.8, but [2.0 , 5.0] is a better range for EEG
                            )
 apply_inverse_kwargs = dict(method='dSPM')
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     import os
     import pickle
 
-    # select which dataset to use
+    # select data folder name
     data_folder = os.path.join(os.getcwd(), 'data', 'processed_evokeds')
 
     file_locs = {

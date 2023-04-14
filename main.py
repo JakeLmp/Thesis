@@ -1,6 +1,5 @@
 # %% imports
 import mne
-from mne_processes import inverse_solution
 import os
 import pickle
 
@@ -25,7 +24,7 @@ except:
 
 # Manually select the key of the dataset to use
 # available keys: del2019, del2021, aurn2021, aurn2023
-dataset_key = 'del2021'
+dataset_key = 'del2019'
 
 file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
 
@@ -38,7 +37,7 @@ file_loc = os.path.join(os.getcwd(), 'data', 'forward_solutions', dataset_key + 
 fwd = mne.read_forward_solution(file_loc)
 
 
-# lastly, the average source estimate
+# lastly, the averaged source estimates
 file_loc = os.path.join(os.getcwd(), 'data', 'source_estimates', dataset_key + '.stc_dict.pickle')
 
 with open(file_loc, 'rb') as f:
@@ -66,42 +65,97 @@ P600_average = dict((cond, stc.copy().crop(tmin=P600_window[0],
 
 
 # %%
-# Print the condition keywords for this dataset 
-# ('noise_covariance' is not one of them)
-first_subject = list(data.keys())[0]
-print(data[first_subject].keys())
+# Defining contrasts
+# These are the same contrasts as those taken in the original papers
+
+if dataset_key == 'del2019':
+    A = 'control'
+    B = 'script-related'
+    C = 'script-unrelated'
+
+    contrasts = [(A, B), (A, C)]
+
+if dataset_key == 'del2021':
+    A = 'baseline'
+    B = 'plausible'
+    C = 'implausible'
+
+    contrasts = [(A, B), (A, C), (B, C)]
+
+if dataset_key == 'aurn2021':
+    A = 'A'
+    B = 'B'
+    C = 'C'
+    D = 'D'
+
+    contrasts = [(A, B), (A, C), (A, D), (C, D)]
+
+if dataset_key == 'aurn2023':
+    A = 'A'
+    B = 'B'
+    C = 'C'
+
+    contrasts = [(A, B), (A, C)]
+
 
 # %%
-# Define your contrasts here
-A = 'baseline'
-B = 'plausible'
-C = 'implausible'
+# Calculating contrasted source estimates
 
-c1, c2 = A, B
-comp = N400_average
-x = comp[c2] - comp[c1]     # this does the contrast
-x += x.data.min()           # we can't see negative magnitude, how do we fix that?
+N400_results = []
+P600_results = []
 
-association_1 = x
+for c1, c2 in contrasts:
+    x = N400_average[c2] - N400_average[c1]
+    x += x.data.min()
+    N400_results.append(x.copy())
 
-c1, c2 = A, C
-comp = N400_average
-x = comp[c2] - comp[c1]
-x += x.data.min()
+    x = P600_average[c2] - P600_average[c1]
+    x += x.data.min()
+    P600_results.append(x.copy())
 
-association_2 = x
+# %%
+# Plotting the results
 
-c1, c2 = C, B
-comp = P600_average
-x = comp[c2] - comp[c1]
-x += x.data.min()
+# import matplotlib.pyplot as plt
 
-plausibility = x
+# # Download fsaverage files to use as head model
+# from mne.datasets import fetch_fsaverage
+# fs_dir = fetch_fsaverage(verbose=True)
+# subjects_dir = os.path.dirname(fs_dir)
+
+# # specify MNE plotting kwargs
+# kwargs = dict(hemi='lh', 
+#               subjects_dir=subjects_dir,
+#               colormap='mne', 
+#             #   clim='auto',
+#               clim=dict(kind='value', lims=[70, 85, 99]),
+#               smoothing_steps=7,
+#               backend='matplotlib',
+#               )
+
+# # create figure with room for all the contrasts
+# fig = plt.figure(layout='constrained', figsize=(5*len(contrasts), 6))
+# subfigs = fig.subfigures(nrows = 1, ncols = len(contrasts), 
+#                          wspace=0.07)
+
+# # do the plotting for N400
+# for sfig, result in zip(subfigs, N400_results):
+#     result.plot(figure = sfig, 
+#                 **kwargs) 
+
+# # check if output directory already exists. if not, make it
+# plot_folder = os.path.join(os.getcwd(), 'plots')
+# if not os.path.isdir(plot_folder):
+#     os.mkdir(plot_folder)
+
+# # save figure
+# fname = os.path.join(plot_folder, dataset_key + '_N400_contrasts.png')
+# fig.savefig(fname = fname, dpi = 800)
 
 
 
 # %%
-# visualisation of results
+# Interactive visualisation of estimates
 
 # check if running in interactive python, skip if no
 if interactive_mode:
@@ -120,12 +174,11 @@ if interactive_mode:
     # change the stc object to whatever you want to see
 
     i=1
-    brain = association_1.plot(figure=i, **kwargs); i+=1
-    brain = association_2.plot(figure=i, **kwargs); i+=1
-    brain = plausibility.plot(figure=i, **kwargs); i+=1
+    for result in P600_results:
+        brain = result.plot(figure=i, **kwargs); i+=1
     # brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
     
-    brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
+    # brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 
 else:
     print("\nSkipping visualisation of inverse result\n")
