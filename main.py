@@ -50,7 +50,7 @@ with open(file_loc, 'rb') as f:
 # Relevant time windows
 N400_window = (.300, .500)      # most commonly seen in my literature review
 # N400_window = (.350, .450)      # narrow N400 window
-P600_window = (.600, .800)      # 500 ms as a start is common, end of window debatable
+P600_window = (.600, .800)      # 600 ms as a start is common, end of window debatable
 # P600_window = (.600, 1.)        # broad P600 window
 
 # crop the stcs to the specified windows, then take the mean activation
@@ -106,52 +106,10 @@ P600_results = []
 
 for c1, c2 in contrasts:
     x = N400_average[c2] - N400_average[c1]
-    x += x.data.min()
     N400_results.append(x.copy())
 
     x = P600_average[c2] - P600_average[c1]
-    x += x.data.min()
     P600_results.append(x.copy())
-
-# %%
-# Plotting the results
-
-# import matplotlib.pyplot as plt
-
-# # Download fsaverage files to use as head model
-# from mne.datasets import fetch_fsaverage
-# fs_dir = fetch_fsaverage(verbose=True)
-# subjects_dir = os.path.dirname(fs_dir)
-
-# # specify MNE plotting kwargs
-# kwargs = dict(hemi='lh', 
-#               subjects_dir=subjects_dir,
-#               colormap='mne', 
-#             #   clim='auto',
-#               clim=dict(kind='value', lims=[70, 85, 99]),
-#               smoothing_steps=7,
-#               backend='matplotlib',
-#               )
-
-# # create figure with room for all the contrasts
-# fig = plt.figure(layout='constrained', figsize=(5*len(contrasts), 6))
-# subfigs = fig.subfigures(nrows = 1, ncols = len(contrasts), 
-#                          wspace=0.07)
-
-# # do the plotting for N400
-# for sfig, result in zip(subfigs, N400_results):
-#     result.plot(figure = sfig, 
-#                 **kwargs) 
-
-# # check if output directory already exists. if not, make it
-# plot_folder = os.path.join(os.getcwd(), 'plots')
-# if not os.path.isdir(plot_folder):
-#     os.mkdir(plot_folder)
-
-# # save figure
-# fname = os.path.join(plot_folder, dataset_key + '_N400_contrasts.png')
-# fig.savefig(fname = fname, dpi = 800)
-
 
 
 # %%
@@ -174,7 +132,7 @@ if interactive_mode:
     # change the stc object to whatever you want to see
 
     i=1
-    for result in P600_results:
+    for result in N400_results:
         brain = result.plot(figure=i, **kwargs); i+=1
     # brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
     
@@ -182,4 +140,77 @@ if interactive_mode:
 
 else:
     print("\nSkipping visualisation of inverse result\n")
+
+
+
+# %%
+# Defining ROIs
+
+# get subject directory
+subjects_dir = mne.datasets.sample.data_path(download=False) / 'subjects'
+
+# download the 'aparc' parcellation data
+mne.datasets.fetch_aparc_sub_parcellation(subjects_dir=subjects_dir,
+                                          verbose=True)
+
+# read in the labels
+labels = mne.read_labels_from_annot(
+    'fsaverage', 'aparc', 'lh', subjects_dir=subjects_dir)
+
+# uncomment the following line to print all available labels
+# print([label.name for label in labels])
+
+# these are the subsets of filenames from what we just downloaded 
+parcels_temporal = ['middletemporal-lh',    # middle temporal gyrus
+                    'superiortemporal-lh',  # superior temporal gyrus
+                    'bankssts-lh'           # banks of the superior temporal sulcus
+                    ]
+
+parcels_frontal = ['parsopercularis-lh',    # xxx
+                   'parsorbitalis-lh',      # xxx
+                   'parstriangularis-lh'    # xxx
+                   ]
+
+# get all the ROI label objects
+ROIs_temporal = [label for label in labels 
+                 if label.name in parcels_temporal]
+
+ROIs_frontal = [label for label in labels 
+                 if label.name in parcels_frontal]
+
+# we don't need the two ROIs as separate sublabels, so we add them together
+ROI_temp = ROIs_temporal[0]
+for ROI in ROIs_temporal[1:]:
+    ROI_temp += ROI
+
+ROI_front = ROIs_frontal[0]
+for ROI in ROIs_frontal[1:]:
+    ROI_front += ROI
+
+# visualise the selected regions
+if interactive_mode:
+    brain = mne.viz.Brain('fsaverage', 'lh', 'inflated', subjects_dir=subjects_dir,
+                cortex='low_contrast', background='white', size=(800, 600))
+    brain.add_annotation('aparc')
+
+    for ROI in ROIs_temporal + ROIs_frontal:
+        brain.add_label(ROI, borders=False)
+
+    brain = mne.viz.Brain('fsaverage', 'lh', 'inflated', subjects_dir=subjects_dir,
+                cortex='low_contrast', background='white', size=(800, 600))
+    brain.add_annotation('aparc')
+    brain.add_label(ROI_front, borders=False)
+    brain.add_label(ROI_temp, borders=False)
+else:
+    print("\nSkipping ROI visualisation\n")
+
+
+
+# %%
+# Getting agglomerated activation time series for ROIs
+
+# we need the source space for this (stored as attribute of forward solution)
+src = fwd['src']
+
+tcs = average_stcs['control'].extract_label_time_course(ROI_temp, src, mode='mean')
 # %%
