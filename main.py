@@ -55,10 +55,10 @@ P600_window = (.600, .800)      # 600 ms as a start is common, end of window deb
 
 # crop the stcs to the specified windows, then take the mean activation
 # do this on a copy, so we don't have to recalculate the average activations
-N400_average = dict((cond, stc.copy().crop(tmin=N400_window[0], 
+N400_window_average = dict((cond, stc.copy().crop(tmin=N400_window[0], 
                                            tmax=N400_window[1]).mean())
                         for cond, stc in average_stcs.items())
-P600_average = dict((cond, stc.copy().crop(tmin=P600_window[0], 
+P600_window_average = dict((cond, stc.copy().crop(tmin=P600_window[0], 
                                            tmax=P600_window[1]).mean())
                         for cond, stc in average_stcs.items())
 
@@ -101,15 +101,15 @@ if dataset_key == 'aurn2023':
 # %%
 # Calculating contrasted source estimates
 
-N400_results = []
-P600_results = []
+N400_stc_contrasts = []
+P600_stc_contrasts = []
 
 for c1, c2 in contrasts:
-    x = N400_average[c2] - N400_average[c1]
-    N400_results.append(x.copy())
+    x = N400_window_average[c2] - N400_window_average[c1]
+    N400_stc_contrasts.append(x.copy())
 
-    x = P600_average[c2] - P600_average[c1]
-    P600_results.append(x.copy())
+    x = P600_window_average[c2] - P600_window_average[c1]
+    P600_stc_contrasts.append(x.copy())
 
 
 # %%
@@ -132,9 +132,9 @@ if interactive_mode:
     # change the stc object to whatever you want to see
 
     i=1
-    for result in N400_results:
+    for result in N400_stc_contrasts:
         brain = result.plot(figure=i, **kwargs); i+=1
-    # brain = (P600_average[C] - P600_average[A]).plot(figure=i, **kwargs); i+=1
+    # brain = (P600_window_average[C] - P600_window_average[A]).plot(figure=i, **kwargs); i+=1
     
     # brain.add_text(0.1, 0.9, 'MNE', 'title', font_size=14)
 
@@ -187,6 +187,7 @@ ROI_front = ROIs_frontal[0]
 for ROI in ROIs_frontal[1:]:
     ROI_front += ROI
 
+# %%
 # visualise the selected regions
 if interactive_mode:
     brain = mne.viz.Brain('fsaverage', 'lh', 'inflated', subjects_dir=subjects_dir,
@@ -212,5 +213,10 @@ else:
 # we need the source space for this (stored as attribute of forward solution)
 src = fwd['src']
 
-tcs = average_stcs['control'].extract_label_time_course(ROI_temp, src, mode='mean')
+# tcs_temporal = average_stcs['control'].extract_label_time_course(ROI_temp, src, mode='mean')
+tcs_temporal = dict((cond, stc.extract_label_time_course(ROI_temp, src, mode='mean')) 
+                    for cond, stc in average_stcs.items())
+tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='mean'))
+                   for cond, stc in average_stcs.items())
+
 # %%
