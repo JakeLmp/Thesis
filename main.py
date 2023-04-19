@@ -24,7 +24,7 @@ except:
 
 # Manually select the key of the dataset to use
 # available keys: del2019, del2021, aurn2021, aurn2023
-dataset_key = 'del2019'
+dataset_key = 'aurn2021'
 
 file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
 
@@ -74,6 +74,7 @@ if dataset_key == 'del2019':
     C = 'script-unrelated'
 
     contrasts = [(A, B), (A, C)]
+    order = [A, B, C]
 
 if dataset_key == 'del2021':
     A = 'baseline'
@@ -81,6 +82,7 @@ if dataset_key == 'del2021':
     C = 'implausible'
 
     contrasts = [(A, B), (A, C), (B, C)]
+    order = [A, B, C]
 
 if dataset_key == 'aurn2021':
     A = 'A'
@@ -89,6 +91,7 @@ if dataset_key == 'aurn2021':
     D = 'D'
 
     contrasts = [(A, B), (A, C), (A, D), (C, D)]
+    order = [A, B, C, D]
 
 if dataset_key == 'aurn2023':
     A = 'A'
@@ -96,6 +99,7 @@ if dataset_key == 'aurn2023':
     C = 'C'
 
     contrasts = [(A, B), (A, C)]
+    order = [A, B, C]
 
 
 # %%
@@ -214,9 +218,177 @@ else:
 src = fwd['src']
 
 # tcs_temporal = average_stcs['control'].extract_label_time_course(ROI_temp, src, mode='mean')
-tcs_temporal = dict((cond, stc.extract_label_time_course(ROI_temp, src, mode='mean')) 
+tcs_temporal = dict((cond, stc.extract_label_time_course(ROI_temp, src, mode='mean')[0]) 
                     for cond, stc in average_stcs.items())
-tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='mean'))
+tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='mean')[0])
                    for cond, stc in average_stcs.items())
 
+
+
 # %%
+# Plotting the activation time series (all together)
+import matplotlib.pyplot as plt
+
+x = list(i/1000 for i in range(-200, 1200, 2))
+save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
+
+# temporal lobe
+
+plt.figure(dpi=800)
+for key, val in tcs_temporal.items():
+    plt.plot(x, val, label=key)
+
+plt.title('Estimated activation in temporal lobe')
+plt.legend()
+
+file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity.png')
+plt.savefig(file_loc)
+
+plt.figure(dpi=800)
+for c1, c2 in contrasts:
+    y = tcs_temporal[c2] - tcs_temporal[c1]
+    plt.plot(x, y, label=f'{c2} - {c1}')
+
+plt.title('Contrasted estimated activation in temporal lobe')
+plt.legend()
+
+file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity_contrasts.png')
+plt.savefig(file_loc)
+
+# frontal lobe
+
+plt.figure(dpi=800)
+for key, val in tcs_frontal.items():
+    plt.plot(x, val, label=key)
+
+plt.title('Estimated activation in (partial) frontal lobe')
+plt.legend()
+
+file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity.png')
+plt.savefig(file_loc)
+
+plt.figure(dpi=800)
+for c1, c2 in contrasts:
+    y = tcs_frontal[c2] - tcs_frontal[c1]
+    plt.plot(x, y, label=f'{c2} - {c1}')
+
+plt.title('Contrasted estimated activation in (partial) frontal lobe')
+plt.legend()
+
+file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity_contrasts.png')
+plt.savefig(file_loc)
+
+
+# %%
+# Plotting the activation time series (separate plots, one figure)
+
+x = list(i/1000 for i in range(-200, 1200, 2))
+save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
+
+# temporal lobe
+
+# just the activations
+fig, axs = plt.subplots(ncols=1,
+                        nrows=len(order),
+                        sharex=True,
+                        dpi=800)
+
+maxval, minval = 0, 0
+
+for ax, key in zip(axs, order):
+    ax.plot(x, tcs_temporal[key], label=key)
+    ax.legend(loc='upper left')
+    ax.axvspan(*N400_window, color='grey', alpha=0.2)
+    ax.axvspan(*P600_window, color='grey', alpha=0.2)
+    if max(tcs_temporal[key]) > maxval: maxval = max(tcs_temporal[key])
+    if min(tcs_temporal[key]) < minval: minval = min(tcs_temporal[key])
+
+for ax in axs:
+    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+    ax.set_xlim(left=x[0], right=x[-1])
+
+fig.suptitle('Estimated activation in temporal lobe')
+
+file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity_separate.png')
+fig.savefig(file_loc)
+
+
+# the contrasts
+fig, axs = plt.subplots(ncols=1,
+                        nrows=len(contrasts),
+                        sharex=True,
+                        dpi=800)
+
+maxval, minval = 0, 0
+
+for ax, (c1, c2) in zip(axs, contrasts):
+    y = tcs_temporal[c2] - tcs_temporal[c1]
+    ax.plot(x, y, label=f'{c2} - {c1}')
+    ax.legend(loc='upper left')
+    ax.axvspan(*N400_window, color='grey', alpha=0.2)
+    ax.axvspan(*P600_window, color='grey', alpha=0.2)
+    if max(y) > maxval: maxval = max(y)
+    if min(y) < minval: minval = min(y)
+
+for ax in axs:
+    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+    ax.set_xlim(left=x[0], right=x[-1])
+
+fig.suptitle('Contrasted estimated activation in temporal lobe')
+
+file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity_contrasts_separate.png')
+fig.savefig(file_loc)
+
+# frontal lobe
+
+# just the activations
+fig, axs = plt.subplots(ncols=1,
+                        nrows=len(order),
+                        sharex=True,
+                        dpi=800)
+
+maxval, minval = 0, 0
+
+for ax, key in zip(axs, order):
+    ax.plot(x, tcs_frontal[key], label=key)
+    ax.legend(loc='upper left')
+    ax.axvspan(*N400_window, color='grey', alpha=0.2)
+    ax.axvspan(*P600_window, color='grey', alpha=0.2)
+    if max(tcs_frontal[key]) > maxval: maxval = max(tcs_frontal[key])
+    if min(tcs_frontal[key]) < minval: minval = min(tcs_frontal[key])
+
+for ax in axs:
+    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+    ax.set_xlim(left=x[0], right=x[-1])
+
+fig.suptitle('Estimated activation in frontal lobe')
+
+file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity_separate.png')
+fig.savefig(file_loc)
+
+
+# the contrasts
+fig, axs = plt.subplots(ncols=1,
+                        nrows=len(contrasts),
+                        sharex=True,
+                        dpi=800)
+
+maxval, minval = 0, 0
+
+for ax, (c1, c2) in zip(axs, contrasts):
+    y = tcs_frontal[c2] - tcs_frontal[c1]
+    ax.plot(x, y, label=f'{c2} - {c1}')
+    ax.legend(loc='upper left')
+    ax.axvspan(*N400_window, color='grey', alpha=0.2)
+    ax.axvspan(*P600_window, color='grey', alpha=0.2)
+    if max(y) > maxval: maxval = max(y)
+    if min(y) < minval: minval = min(y)
+
+for ax in axs:
+    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+    ax.set_xlim(left=x[0], right=x[-1])
+
+fig.suptitle('Contrasted estimated activation in frontal lobe')
+
+file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity_contrasts_separate.png')
+fig.savefig(file_loc)
