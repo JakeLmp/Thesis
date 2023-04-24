@@ -24,7 +24,7 @@ except:
 
 # Manually select the key of the dataset to use
 # available keys: del2019, del2021, aurn2021, aurn2023
-dataset_key = 'aurn2021'
+dataset_key = 'del2019' 
 
 file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
 
@@ -229,14 +229,16 @@ tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='me
 import matplotlib.pyplot as plt
 import numpy as np
 import bottleneck as bn
-from statsmodels.tsa.arima.model import ARIMA
+# from statsmodels.tsa.arima.model import ARIMA
 
 x = np.arange(start=-0.2, stop=1.2, step=0.002)
 save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
 
 # options: 'mean', 'linear regression', 'moving window'
 threshold_type = 'moving window'
-std_multiplier = 1.5
+
+# range of standard deviations we want to compare against
+std_multipliers = np.array([1.0, 2.0])
 
 # moving window of size 200 ms
 window = min_count = 100
@@ -245,240 +247,114 @@ window = min_count = 100
 # optional_filename_string = ''
 optional_filename_string = '_' + threshold_type
 
+# less copy-pasting of code if we put it in a loop
+time_course_dict = {'temporal':tcs_temporal, 'frontal':tcs_frontal}
 
+for lobe_name, tcs in time_course_dict.items():
+    # just the activations
+    fig, axs = plt.subplots(ncols=1,
+                            nrows=len(order),
+                            sharex=True,
+                            dpi=800)
 
-# TEMPORAL LOBE
+    # I want the y-axis to be consistent between the plots
+    # so we're finding the max/min values of all plots together to set the ylimits
+    maxval, minval = 0, 0
 
-# just the activations
-fig, axs = plt.subplots(ncols=1,
-                        nrows=len(order),
-                        sharex=True,
-                        dpi=800)
+    for ax, key in zip(axs, order):
+        y = tcs[key]
 
-# I want the y-axis to be consistent between the plots
-# so we're finding the max/min values of all plots together to set the ylimits
-maxval, minval = 0, 0
+        # simple mean with std interval
+        if threshold_type == 'mean':
+            error = std_multipliers * np.std(np.array(y))
+            ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
+            for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, alpha=0.25, color='#1f77b4', linewidth=0)
 
-for ax, key in zip(axs, order):
-    y = tcs_temporal[key]
+        # linear regression with std calculated on detrended data
+        if threshold_type == 'linear regression':
+            m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
+            error = std_multipliers * np.std(np.array(y) - m*x + c)
+            ax.plot(x, m*x + c, linestyle='dotted')
+            for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, alpha=0.25, color='#1f77b4', linewidth=0)
 
-    # simple mean with std interval
-    if threshold_type == 'mean':
-        error = std_multiplier * np.std(np.array(y))
-        ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-        ax.fill_between(x, np.mean(y)-error, np.mean(y)+error, alpha=0.25)
+        # moving average and std
+        if threshold_type == 'moving window':
+            window_avg = bn.move_mean(y, window=window, min_count=min_count)
+            window_std = np.array([std_multipliers]).T * bn.move_std(y, window=window, min_count=min_count)
 
-    # linear regression with std calculated on detrended data
-    if threshold_type == 'linear regression':
-        m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
-        error = std_multiplier * np.std(np.array(y) - m*x + c)
-        ax.plot(x, m*x + c, linestyle='dotted')
-        ax.fill_between(x, m*x+c + error, m*x+c - error, alpha=0.25)
+            # we shift the x-axis by half the window size so it lines up with the actual data
+            ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
+            for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, alpha=0.25, color='#1f77b4', linewidth=0)
 
-    # moving average and std
-    if threshold_type == 'moving window':
-        window_avg = bn.move_mean(y, window=window, min_count=min_count)
-        window_std = std_multiplier * bn.move_std(y, window=window, min_count=min_count)
+        ax.plot(x, y, label=key, color='#1f77b4')
 
-        # we shift the x-axis by half the window size so it lines up with the actual data
-        ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-        ax.fill_between(x - window*0.002/2, window_avg-window_std, window_avg+window_std, alpha=0.25, color='#1f77b4')
+        # storing the max/min values
+        if max(y) > maxval: maxval = max(y)
+        if min(y) < minval: minval = min(y)
 
-    # ARIMA
-    # if threshold_type == 'ARIMA':
-    #     model = ARIMA(y, order=(5,0,0))
-    #     model_fit = model.fit()
-    #     predictions = model_fit.get_prediction().summary_frame()
+    for ax in axs:
+        ax.legend(loc='upper left')
+        ax.axvspan(*N400_window, alpha=0.2, color='grey')
+        ax.axvspan(*P600_window, alpha=0.2, color='grey')
 
-    #     ax.plot(x, predictions['mean'], linestyle='dotted', color='#1f77b4')
-    #     ax.fill_between(x, predictions['mean_ci_lower'], predictions['mean_ci_upper'], alpha=0.25, color='#1f77b4')
+        ax.grid(visible=True)
+        ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+        ax.set_xlim(left=x[0], right=x[-1])
 
-    ax.plot(x, y, label=key, color='#1f77b4')
-    # ax.fill_between(x, y-error, y+error, alpha=0.25)
+    fig.suptitle(f'Estimated activation in {lobe_name} lobe')
 
-    # storing the max/min values
-    if max(y) > maxval: maxval = max(y)
-    if min(y) < minval: minval = min(y)
+    file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_separate' + optional_filename_string + '.png')
+    fig.savefig(file_loc)
 
-for ax in axs:
-    ax.legend(loc='upper left')
-    ax.axvspan(*N400_window, alpha=0.2, color='#1f77b4')
-    ax.axvspan(*P600_window, alpha=0.2, color='#1f77b4')
+    # the contrasts
+    fig, axs = plt.subplots(ncols=1,
+                            nrows=len(contrasts),
+                            sharex=True,
+                            dpi=800)
 
-    ax.grid(visible=True)
-    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-    ax.set_xlim(left=x[0], right=x[-1])
+    maxval, minval = 0, 0
 
-fig.suptitle('Estimated activation in temporal lobe')
+    for ax, (c1, c2) in zip(axs, contrasts):
+        y = tcs[c2] - tcs[c1]
 
+        # simple mean with std interval
+        if threshold_type == 'mean':
+            error = std_multipliers * np.std(np.array(y))
+            ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
+            for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, alpha=0.25, color='#1f77b4', linewidth=0)
 
-#%%
-file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity_separate' + optional_filename_string + '.png')
-fig.savefig(file_loc)
+        # linear regression with std calculated on detrended data
+        if threshold_type == 'linear regression':
+            m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
+            error = std_multipliers * np.std(np.array(y) - m*x + c)
+            ax.plot(x, m*x + c, linestyle='dotted')
+            for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, alpha=0.25, color='#1f77b4', linewidth=0)
 
+        # moving average and std
+        if threshold_type == 'moving window':
+            window_avg = bn.move_mean(y, window=window, min_count=min_count)
+            window_std = np.array([std_multipliers]).T * bn.move_std(y, window=window, min_count=min_count)
 
-# the contrasts
-fig, axs = plt.subplots(ncols=1,
-                        nrows=len(contrasts),
-                        sharex=True,
-                        dpi=800)
+            # we shift the x-axis by half the window size so it lines up with the actual data
+            ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
+            for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, alpha=0.25, color='#1f77b4', linewidth=0)
 
-maxval, minval = 0, 0
+        ax.plot(x, y, label=f'{c2} - {c1}', color='#1f77b4')
 
-for ax, (c1, c2) in zip(axs, contrasts):
-    y = tcs_temporal[c2] - tcs_temporal[c1]
+        # storing the max/min values
+        if max(y) > maxval: maxval = max(y)
+        if min(y) < minval: minval = min(y)
 
-    # simple mean with std interval
-    if threshold_type == 'mean':
-        error = std_multiplier * np.std(np.array(y))
-        ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-        ax.fill_between(x, np.mean(y)-error, np.mean(y)+error, alpha=0.25)
+    for ax in axs:
+        ax.legend(loc='upper left')
+        ax.axvspan(*N400_window, alpha=0.2, color='grey')
+        ax.axvspan(*P600_window, alpha=0.2, color='grey')
 
-    # linear regression with std calculated on detrended data
-    if threshold_type == 'linear regression':
-        m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
-        error = std_multiplier * np.std(np.array(y) - m*x + c)
-        ax.plot(x, m*x + c, linestyle='dotted')
-        ax.fill_between(x, m*x+c + error, m*x+c - error, alpha=0.25)
+        ax.grid(visible=True)
+        ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
+        ax.set_xlim(left=x[0], right=x[-1])
 
-    # moving average and std
-    if threshold_type == 'moving window':
-        window_avg = bn.move_mean(y, window=window, min_count=min_count)
-        window_std = std_multiplier * bn.move_std(y, window=window, min_count=min_count)
+    fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
 
-        # we shift the x-axis by half the window size so it lines up with the actual data
-        ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-        ax.fill_between(x - window*0.002/2, window_avg-window_std, window_avg+window_std, alpha=0.25, color='#1f77b4')
-
-    ax.plot(x, y, label=f'{c2} - {c1}', color='#1f77b4')
-    # ax.fill_between(x, y-error, y+error, alpha=0.25)
-
-    # storing the max/min values
-    if max(y) > maxval: maxval = max(y)
-    if min(y) < minval: minval = min(y)
-
-for ax in axs:
-    ax.legend(loc='upper left')
-    ax.axvspan(*N400_window, alpha=0.2, color='#1f77b4')
-    ax.axvspan(*P600_window, alpha=0.2, color='#1f77b4')
-
-    ax.grid(visible=True)
-    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-    ax.set_xlim(left=x[0], right=x[-1])
-
-fig.suptitle('Contrasted estimated activation in temporal lobe')
-
-file_loc = os.path.join(save_loc, dataset_key + '_temporal_activity_contrasts_separate' + optional_filename_string + '.png')
-fig.savefig(file_loc)
-
-
-# FRONTAL LOBE
-
-# just the activations
-fig, axs = plt.subplots(ncols=1,
-                        nrows=len(order),
-                        sharex=True,
-                        dpi=800)
-
-maxval, minval = 0, 0
-
-for ax, key in zip(axs, order):
-    y = tcs_frontal[key]
-
-    # simple mean with std interval
-    if threshold_type == 'mean':
-        error = std_multiplier * np.std(np.array(y))
-        ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-        ax.fill_between(x, np.mean(y)-error, np.mean(y)+error, alpha=0.25)
-
-    # linear regression with std calculated on detrended data
-    if threshold_type == 'linear regression':
-        m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
-        error = std_multiplier * np.std(np.array(y) - m*x + c)
-        ax.plot(x, m*x + c, linestyle='dotted')
-        ax.fill_between(x, m*x+c + error, m*x+c - error, alpha=0.25)
-
-    # moving average and std
-    if threshold_type == 'moving window':
-        window_avg = bn.move_mean(y, window=window, min_count=min_count)
-        window_std = std_multiplier * bn.move_std(y, window=window, min_count=min_count)
-
-        # we shift the x-axis by half the window size so it lines up with the actual data
-        ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-        ax.fill_between(x - window*0.002/2, window_avg-window_std, window_avg+window_std, alpha=0.25, color='#1f77b4')
-
-    ax.plot(x, y, label=key, color='#1f77b4')
-    # ax.fill_between(x, y-error, y+error, alpha=0.25)
-
-    # storing the max/min values
-    if max(y) > maxval: maxval = max(y)
-    if min(y) < minval: minval = min(y)
-
-for ax in axs:
-    ax.legend(loc='upper left')
-    ax.axvspan(*N400_window, alpha=0.2, color='#1f77b4')
-    ax.axvspan(*P600_window, alpha=0.2, color='#1f77b4')
-
-    ax.grid(visible=True)
-    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-    ax.set_xlim(left=x[0], right=x[-1])
-
-fig.suptitle('Estimated activation in frontal lobe')
-
-file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity_separate' + optional_filename_string + '.png')
-fig.savefig(file_loc)
-
-
-# the contrasts
-fig, axs = plt.subplots(ncols=1,
-                        nrows=len(contrasts),
-                        sharex=True,
-                        dpi=800)
-
-maxval, minval = 0, 0
-
-for ax, (c1, c2) in zip(axs, contrasts):
-    y = tcs_frontal[c2] - tcs_frontal[c1]
-
-    # simple mean with std interval
-    if threshold_type == 'mean':
-        error = std_multiplier * np.std(np.array(y))
-        ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-        ax.fill_between(x, np.mean(y)-error, np.mean(y)+error, alpha=0.25)
-
-    # linear regression with std calculated on detrended data
-    if threshold_type == 'linear regression':
-        m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
-        error = std_multiplier * np.std(np.array(y) - m*x + c)
-        ax.plot(x, m*x + c, linestyle='dotted')
-        ax.fill_between(x, m*x+c + error, m*x+c - error, alpha=0.25)
-
-    # moving average and std
-    if threshold_type == 'moving window':
-        window_avg = bn.move_mean(y, window=window, min_count=min_count)
-        window_std = std_multiplier * bn.move_std(y, window=window, min_count=min_count)
-
-        # we shift the x-axis by half the window size so it lines up with the actual data
-        ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-        ax.fill_between(x - window*0.002/2, window_avg-window_std, window_avg+window_std, alpha=0.25, color='#1f77b4')
-
-    ax.plot(x, y, label=f'{c2} - {c1}', color='#1f77b4')
-    # ax.fill_between(x, y-error, y+error, alpha=0.25)
-
-    # storing the max/min values
-    if max(y) > maxval: maxval = max(y)
-    if min(y) < minval: minval = min(y)
-
-for ax in axs:
-    ax.legend(loc='upper left')
-    ax.axvspan(*N400_window, alpha=0.2, color='#1f77b4')
-    ax.axvspan(*P600_window, alpha=0.2, color='#1f77b4')
-
-    ax.grid(visible=True)
-    ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-    ax.set_xlim(left=x[0], right=x[-1])
-
-fig.suptitle('Contrasted estimated activation in frontal lobe')
-
-file_loc = os.path.join(save_loc, dataset_key + '_frontal_activity_contrasts_separate' + optional_filename_string + '.png')
-fig.savefig(file_loc)
+    file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts_separate' + optional_filename_string + '.png')
+    fig.savefig(file_loc)
