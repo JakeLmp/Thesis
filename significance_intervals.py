@@ -53,33 +53,30 @@ for ROI in ROIs_frontal[1:]:
 
 
 # %%
-# Specifying some stuff
-
-plot_kwargs = {'linewidth':20, 'linestyle':'-', 'solid_capstyle':'butt', 'alpha':0.5}
-
-x = np.arange(start=-0.2, stop=1.2, step=0.002)
-y_plotlevels = [0, 2, 5, 9]
-save_loc = os.path.join(os.getcwd(), 'plots', 'significance_plots')
+# Making the interval plots
 
 # options: 'mean', 'linear regression', 'moving window'
 threshold_type = 'linear regression'
 
-# range of standard deviations we want to compare against
-std_multipliers = np.array([0.5, 1.5])
-std_multipliers = np.flip(np.sort(std_multipliers)) # this needs to be in descending order
+# save in this folder
+save_loc = os.path.join(os.getcwd(), 'plots', 'significance_plots')
 
-# moving window of size 200 ms
-window = min_count = 100
-
-# leave this string empty if you don't want extra info in the filenam
-# optional_filename_string = ''
+# leave this as an emtpy string (like this: '') if you don't want extra info in the filename
 optional_filename_string = '_' + threshold_type
+
+# range of standard deviations we want to compare against
+std_multipliers = np.flip(np.sort([0.5, 1.5])) # descending order
 
 # Relevant time windows
 N400_window = (.300, .500)      # most commonly seen in my literature review
-# N400_window = (.350, .450)      # narrow N400 window
 P600_window = (.600, .800)      # 600 ms as a start is common, end of window debatable
-# P600_window = (.600, 1.)        # broad P600 window
+
+
+# don't change this stuff
+x = np.arange(start=-0.2, stop=1.2, step=0.002)
+y_plotlevels = [0, 2, 5, 9]
+plot_kwargs = {'linewidth':20, 'linestyle':'-', 'solid_capstyle':'butt', 'alpha':0.5}
+window = min_count = 100
 
 # one subplot for each ROI
 fig, axs = plt.subplots(ncols=2,
@@ -93,61 +90,32 @@ keys = ['del2019', 'del2021', 'aurn2021', 'aurn2023']
 for y_plot, dataset_key in zip(y_plotlevels, keys):
     print(f'\nWorking on dataset {dataset_key}\n')
 
-    # Importing preprocessed data, forward solution
+    # Importing preprocessed data, forward solution and averaged source estimates
     file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
-
     with open(file_loc, 'rb') as f:
         data = pickle.load(f)
 
-    # now the forward solution
     file_loc = os.path.join(os.getcwd(), 'data', 'forward_solutions', dataset_key + '-fwd.fif')
-
     fwd = mne.read_forward_solution(file_loc)
 
-
-    # lastly, the averaged source estimates
     file_loc = os.path.join(os.getcwd(), 'data', 'source_estimates', dataset_key + '.stc_dict.pickle')
-
     with open(file_loc, 'rb') as f:
         average_stcs = pickle.load(f)
 
-
-    # Defining contrasts
+    # Defining contrasts and order of plotting
     # These are the same contrasts as those taken in the original papers
-
     if dataset_key == 'del2019':
-        A = 'control'
-        B = 'script-related'
-        C = 'script-unrelated'
-
-        contrasts = [(A, B), (A, C)]
-        order = [A, B, C]
-
-    if dataset_key == 'del2021':
-        A = 'baseline'
-        B = 'plausible'
-        C = 'implausible'
-
-        contrasts = [(A, B), (A, C), (B, C)]
-        order = [A, B, C]
-
-    if dataset_key == 'aurn2021':
-        A = 'A'
-        B = 'B'
-        C = 'C'
-        D = 'D'
-
-        contrasts = [(A, B), (A, C), (A, D), (C, D)]
-        order = [A, B, C, D]
-
-    if dataset_key == 'aurn2023':
-        A = 'A'
-        B = 'B'
-        C = 'C'
-
-        contrasts = [(A, B), (A, C)]
-        order = [A, B, C]
-
+        contrasts = [('control', 'script-related'), ('control', 'script-unrelated')]
+        order = ['control', 'script-related', 'script-unrelated']
+    elif dataset_key == 'del2021':
+        contrasts = [('baseline', 'plausible'), ('baseline', 'implausible'), ('plausible', 'implausible')]
+        order = ['baseline', 'plausible', 'implausible']
+    elif dataset_key == 'aurn2021':
+        contrasts = [('A', 'B'), ('A', 'C'), ('A', 'D'), ('C', 'D')]
+        order = ['A', 'B', 'C', 'D']
+    elif dataset_key == 'aurn2023':
+        contrasts = [('A', 'B'), ('A', 'C')]
+        order = ['A', 'B', 'C']
 
     # Getting agglomerated activation time series for ROIs
     # we need the source space for this (stored as attribute of forward solution)
