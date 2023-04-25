@@ -24,7 +24,7 @@ except:
 
 # Manually select the key of the dataset to use
 # available keys: del2019, del2021, aurn2021, aurn2023
-dataset_key = 'del2019' 
+dataset_key = 'aurn2023' 
 
 file_loc = os.path.join(os.getcwd(), 'data', 'processed_evokeds', dataset_key + '.pickle')
 
@@ -229,13 +229,15 @@ tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='me
 import matplotlib.pyplot as plt
 import numpy as np
 import bottleneck as bn
-# from statsmodels.tsa.arima.model import ARIMA
+
+# don't display figures in interactive mode
+if interactive_mode: plt.ioff()
 
 x = np.arange(start=-0.2, stop=1.2, step=0.002)
 save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
 
 # options: 'mean', 'linear regression', 'moving window'
-threshold_type = 'moving window'
+threshold_type = 'linear regression'
 
 # range of standard deviations we want to compare against
 std_multipliers = np.array([1.0, 2.0])
@@ -358,3 +360,111 @@ for lobe_name, tcs in time_course_dict.items():
 
     file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts_separate' + optional_filename_string + '.png')
     fig.savefig(file_loc)
+
+
+
+# %%
+# Plotting significance intervals in contrasts
+# we use the same threshold type and std multipliers as before
+
+import matplotlib.pyplot as plt
+import numpy as np
+import bottleneck as bn
+
+# don't display figures in interactive mode
+if interactive_mode: plt.ioff()
+
+x = np.arange(start=-0.2, stop=1.2, step=0.002)
+save_loc = os.path.join(os.getcwd(), 'plots', 'significance_plots')
+
+# options: 'mean', 'linear regression', 'moving window'
+threshold_type = 'linear regression'
+
+# range of standard deviations we want to compare against
+std_multipliers = np.array([1., 2.])
+std_multipliers = np.flip(np.sort(std_multipliers)) # this needs to be in descending order
+
+# moving window of size 200 ms
+window = min_count = 100
+
+# leave this string empty if you don't want extra info in the filenam
+# optional_filename_string = ''
+optional_filename_string = '_' + threshold_type
+
+# less copy-pasting of code if we put it in a loop
+time_course_dict = {'temporal':tcs_temporal, 'frontal':tcs_frontal}
+
+
+# # a function that returns the start/stop index pairs of non-zero intervals of a step function
+def get_interval_indices(arr):
+    pulses = np.convolve(np.array([-1,1]), arr)
+    starts = np.argwhere(pulses==-1)
+    stops = np.argwhere(pulses==1)
+    # if an interval runs until the end of the array, add the final index as a stop
+    if len(starts) > len(stops): 
+        stops.append(len(arr) - 1)
+    # if an interval starts at the beginning of the array, add the starting index as a stop
+    if len(starts) < len(stops):
+        starts = np.insert(starts, 0, 0)
+    return np.hstack([starts, stops])
+
+
+# for both ROIs
+for lobe_name, tcs in time_course_dict.items():
+    fig, axs = plt.subplots(ncols=1,
+                            nrows=len(contrasts),
+                            sharex=True,
+                            dpi=800)
+    
+    # we only do this for the contrasted time courses
+    for ax, (c1, c2) in zip(axs, contrasts):
+        y = tcs[c2] - tcs[c1]
+
+        positive_significance_bool = np.zeros(shape=(len(std_multipliers), len(y)), dtype=int)
+        negative_significance_bool = np.zeros(shape=(len(std_multipliers), len(y)), dtype=int)
+
+        # simple mean with std interval
+        if threshold_type == 'mean':
+            error = std_multipliers * np.std(np.array(y))
+
+            for i, e in enumerate(error): 
+                positive_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y > np.mean(y) + e)
+                negative_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y < np.mean(y) - e)
+
+        # linear regression with std calculated on detrended data
+        if threshold_type == 'linear regression':
+            m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
+            error = std_multipliers * np.std(np.array(y) - m*x + c)
+
+            for i, e in enumerate(error): 
+                positive_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y > m*x+c + e)
+                negative_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y < m*x+c - e)
+
+        # moving average and std
+        # if threshold_type == 'moving window':
+        #     window_avg = bn.move_mean(y, window=window, min_count=min_count)
+        #     window_std = np.array([std_multipliers]).T * bn.move_std(y, window=window, min_count=min_count)
+
+            # we shift the x-axis by half the window size so it lines up with the actual data
+            # x_shift = x - window*0.002/2
+            # for i, e in enumerate(error): 
+            #     positive_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y > m*x+c + e)
+            #     negative_significance_bool[i] += np.ones(shape=y.shape, dtype=int) * (y < m*x+c - e)
+        
+        
+
+        for arr in positive_significance_bool:
+            indices = get_interval_indices(arr)
+            for x1, x2 in indices:
+                ax.axvspan(x1, x2, alpha=0.25, color='green', linewidth=0)
+        
+        for arr in negative_significance_bool:
+            indices = get_interval_indices(arr)
+            for x1, x2 in indices:
+                ax.axvspan(x1, x2, alpha=0.25, color='red', linewidth=0)
+    
+    fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
+
+
+
+# %%
