@@ -228,5 +228,10 @@ axs[1].set_ylabel('Expected effect')
 
 plt.tight_layout()
 
-fig.savefig(os.path.join(os.getcwd(), 'plots', 'significance_plots', 'significance_intervals.png'))
+# check if output directory already exists. if not, make it
+output_folder = os.path.join(os.getcwd(), 'plots', 'significance_plots')
+if not os.path.isdir(output_folder):
+    os.mkdir(output_folder)
+
+fig.savefig(os.path.join(output_folder, 'significance_intervals.png'))
 # %%

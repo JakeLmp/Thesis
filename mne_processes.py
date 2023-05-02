@@ -104,92 +104,93 @@ def stc_task(data):
 
 
 
-if __name__ == '__main__':
-    import pandas as pd
-    import os
-    import pickle
+# Now for the actual calculations
 
-    # select data folder name
-    data_folder = os.path.join(os.getcwd(), 'data', 'processed_evokeds')
+import pandas as pd
+import os
+import pickle
 
-    file_locs = {
-        'del2019':os.path.join(data_folder, 'del2019' + '.pickle'),         # delogu 2019
-        'del2021':os.path.join(data_folder, 'del2021' + '.pickle'),         # delogu 2021
-        'aurn2021':os.path.join(data_folder, 'aurn2021' + '.pickle'),       # aurnhammer 2021 EEG epochs
-        'aurn2023':os.path.join(data_folder, 'aurn2023' + '.pickle')        # aurnhammer 2023
-    }
+# select data folder name
+data_folder = os.path.join(os.getcwd(), 'data', 'processed_evokeds')
 
-    # check if output directory already exists. if not, make it
-    forward_output_folder = os.path.join(os.getcwd(), 'data', 'forward_solutions')
-    if not os.path.isdir(forward_output_folder):
-        os.mkdir(forward_output_folder)
+file_locs = {
+    'del2019':os.path.join(data_folder, 'del2019' + '.pickle'),         # delogu 2019
+    'del2021':os.path.join(data_folder, 'del2021' + '.pickle'),         # delogu 2021
+    'aurn2021':os.path.join(data_folder, 'aurn2021' + '.pickle'),       # aurnhammer 2021 EEG epochs
+    'aurn2023':os.path.join(data_folder, 'aurn2023' + '.pickle')        # aurnhammer 2023
+}
 
-    stc_output_folder = os.path.join(os.getcwd(), 'data', 'source_estimates')
-    if not os.path.isdir(stc_output_folder):
-        os.mkdir(stc_output_folder)
+# check if output directory already exists. if not, make it
+forward_output_folder = os.path.join(os.getcwd(), 'data', 'forward_solutions')
+if not os.path.isdir(forward_output_folder):
+    os.mkdir(forward_output_folder)
 
-    # loop through datasets, process if available
-    for key, path in file_locs.items():
-        try:
-            # import the processed data
-            print(f'Importing data for {key}...')
-            with open(path, 'rb') as f:
-                data = pickle.load(f)
+stc_output_folder = os.path.join(os.getcwd(), 'data', 'source_estimates')
+if not os.path.isdir(stc_output_folder):
+    os.mkdir(stc_output_folder)
 
-            # first subject's first condition info object
-            first_subject = sorted(data.keys())[0]
-            first_condition = list(data[first_subject].keys())[0]
-            info = data[first_subject][first_condition].info
+# loop through datasets, process if available
+for key, path in file_locs.items():
+    try:
+        # import the processed data
+        print(f'Importing data for {key}...')
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
 
-            # forward operator kwargs
-            fwd_kwargs = dict(mindist=5.0, 
-                            n_jobs=-1)    # set n_jobs = -1 to use all available cores for parallel processing
+        # first subject's first condition info object
+        first_subject = sorted(data.keys())[0]
+        first_condition = list(data[first_subject].keys())[0]
+        info = data[first_subject][first_condition].info
 
-            # get forward operator
-            print(f'Calculating forward solution for {key}...')
-            fwd = forward_solution(info, forward_kwargs=fwd_kwargs)
+        # forward operator kwargs
+        fwd_kwargs = dict(mindist=5.0, 
+                        n_jobs=-1)    # set n_jobs = -1 to use all available cores for parallel processing
 
-            # write forward solution to file
-            forward_output_file = os.path.join(forward_output_folder, key + '-fwd.fif')
-            print(f'Writing forward solution to file {forward_output_file} ...')
-            mne.write_forward_solution(forward_output_file, fwd, overwrite=True)
+        # get forward operator
+        print(f'Calculating forward solution for {key}...')
+        fwd = forward_solution(info, forward_kwargs=fwd_kwargs)
 
-            # create stc worker function
-            stc_worker = stc_task(data)
+        # write forward solution to file
+        forward_output_file = os.path.join(forward_output_folder, key + '-fwd.fif')
+        print(f'Writing forward solution to file {forward_output_file} ...')
+        mne.write_forward_solution(forward_output_file, fwd, overwrite=True)
 
-            # number of subjects
-            N = len(data.keys())
+        # create stc worker function
+        stc_worker = stc_task(data)
 
-            # initialise average stc dict (placing the first subject's stcs in there)
-            print("Calculating first subject's source estimate...")
-            average_stcs = next(stc_worker)
+        # number of subjects
+        N = len(data.keys())
 
-            # divide by N to get actual contribution to the average
+        # initialise average stc dict (placing the first subject's stcs in there)
+        print("Calculating first subject's source estimate...")
+        average_stcs = next(stc_worker)
+
+        # divide by N to get actual contribution to the average
+        for cond, stc in average_stcs.items():
+            stc = stc/N
+
+        print("Calculating remaining source estimates...")
+
+        # it's nice to know how long this takes
+        from tqdm import tqdm
+        pbar = tqdm(total = N-1)
+
+        # for all remaining subjects
+        for subject_stcs in stc_worker:
+            # for all condition/stc pairs
             for cond, stc in average_stcs.items():
-                stc = stc/N
+                # add contribution to average
+                stc += subject_stcs[cond]/N     # maybe not good practice to alter the elements we're looping over, but it works and I don't care
 
-            print("Calculating remaining source estimates...")
+            pbar.update(1)
 
-            # it's nice to know how long this takes
-            from tqdm import tqdm
-            pbar = tqdm(total = N-1)
+        # write source estimate/time course dictionary to file
+        stc_output_file = os.path.join(stc_output_folder, key + '.stc_dict.pickle')
+        print(f'Writing source time course to file {stc_output_file}')
+        with open(stc_output_file, 'wb') as f:
+            pickle.dump(subject_stcs, f)
 
-            # for all remaining subjects
-            for subject_stcs in stc_worker:
-                # for all condition/stc pairs
-                for cond, stc in average_stcs.items():
-                    # add contribution to average
-                    stc += subject_stcs[cond]/N     # maybe not good practice to alter the elements we're looping over, but it works and I don't care
-
-                pbar.update(1)
-
-            # write source estimate/time course dictionary to file
-            stc_output_file = os.path.join(stc_output_folder, key + '.stc_dict.pickle')
-            print(f'Writing source time course to file {stc_output_file}')
-            with open(stc_output_file, 'wb') as f:
-                pickle.dump(subject_stcs, f)
-
-        except Exception as e:
-            print("Exception occurred:")
-            print(e)
-            print(f"Skipping forward solution with key {key} ...")
+    except Exception as e:
+        print("Exception occurred:")
+        print(e)
+        print(f"Skipping forward solution with key {key} ...")

@@ -89,64 +89,63 @@ def evoked_pipeline(df, subject_no, good_electrodes, verbose=False):
 
     return data
 
-if __name__ == '__main__':
-    import os
-    import pickle
-    from tqdm import tqdm
+# Now for the actual preprocessing
 
-    # select data folder
-    data_folder = os.path.join(os.getcwd(), 'data')
+import os
+import pickle
+from tqdm import tqdm
 
-    # CSV file locations
-    file_locs = {
-        'del2019':os.path.join(data_folder, 'dbc2019data', 'dbc_data.csv'),                        # delogu 2019
-        'del2021':os.path.join(data_folder, 'dbc2021data', 'dbc_data.csv'),                        # delogu 2021
-        'aurn2021':os.path.join(data_folder, 'PLOSONE21lmerERP_ObservedData', 'CAPExp.csv'),       # aurnhammer 2021 EEG epochs
-        'aurn2023':os.path.join(data_folder, 'adbc23_data', 'adbc23_erp.csv')                      # aurnhammer 2023
-    }
+# select data folder
+data_folder = os.path.join(os.getcwd(), 'data')
 
-    # define 'good' channel names (taken from papers)
-    # only these channels will be considered in the resulting Evokeds
-    good_electrodes = {
-        'del2019': ["Fz", "Cz", "Pz", "F3", "FC1", "FC5", "F4", "FC2", "FC6",
-                    "P3", "CP1", "CP5", "P4", "CP2", "CP6", "O1", "Oz", "O2"],
-        'del2021': ["F3" , "Fz", "F4", "FC5", "FC1", "FC2", "FC6", "C3",  "Cz", "C4",
-                    "CP5", "CP1", "CP2", "CP6", "P3","Pz", "P4", "O1",  "Oz", "O2"],
-        'aurn2021':["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
+# CSV file locations
+file_locs = {
+    'del2019':os.path.join(data_folder, 'dbc2019data', 'dbc_data.csv'),                        # delogu 2019
+    'del2021':os.path.join(data_folder, 'dbc2021data', 'dbc_data.csv'),                        # delogu 2021
+    'aurn2021':os.path.join(data_folder, 'PLOSONE21lmerERP_ObservedData', 'CAPExp.csv'),       # aurnhammer 2021 EEG epochs
+    'aurn2023':os.path.join(data_folder, 'adbc23_data', 'adbc23_erp.csv')                      # aurnhammer 2023
+}
+
+# define 'good' channel names (taken from papers)
+# only these channels will be considered in the resulting Evokeds
+good_electrodes = {
+    'del2019': ["Fz", "Cz", "Pz", "F3", "FC1", "FC5", "F4", "FC2", "FC6",
+                "P3", "CP1", "CP5", "P4", "CP2", "CP6", "O1", "Oz", "O2"],
+    'del2021': ["F3" , "Fz", "F4", "FC5", "FC1", "FC2", "FC6", "C3",  "Cz", "C4",
+                "CP5", "CP1", "CP2", "CP6", "P3","Pz", "P4", "O1",  "Oz", "O2"],
+    'aurn2021':["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
+                "FC1", "FC2", "FC6", "C3", "Cz", "C4", "CP5", "CP1",
+                "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1",
+                "Oz", "O2"],
+    'aurn2023': ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
                     "FC1", "FC2", "FC6", "C3", "Cz", "C4", "CP5", "CP1",
                     "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1",
-                    "Oz", "O2"],
-        'aurn2023': ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FC5",
-                     "FC1", "FC2", "FC6", "C3", "Cz", "C4", "CP5", "CP1",
-                     "CP2", "CP6", "P7", "P3", "Pz", "P4", "P8", "O1",
-                     "Oz", "O2"]
-    }
+                    "Oz", "O2"]
+}
 
-    # check if output directory already exists. if not, make it
-    output_folder = os.path.join(data_folder, 'processed_evokeds')
-    if not os.path.isdir(output_folder):
-        os.mkdir(output_folder)
+# check if output directory already exists. if not, make it
+output_folder = os.path.join(data_folder, 'processed_evokeds')
+if not os.path.isdir(output_folder):
+    os.mkdir(output_folder)
 
-    # loop through datasets, process if available
-    for key, path in file_locs.items():
-        try:
-            # import the df
-            print(f"Importing dataset {key}...")
-            df_data = pd.read_csv(path)
-            
-            # run evoked calc on df
-            print("Processing evokeds...")
-            data = dict((i, evoked_pipeline(df_data, i, good_electrodes[key])) for i in tqdm(sorted(df_data['Subject'].unique())))
-
-            # pickle the data dict
-            output_file = os.path.join(output_folder, key + '.pickle')
-            print(f"Pickling into {output_file}...")
-            with open(output_file, 'wb') as f:
-                pickle.dump(data, f)
+# loop through datasets, process if available
+for key, path in file_locs.items():
+    try:
+        # import the df
+        print(f"Importing dataset {key}...")
+        df_data = pd.read_csv(path)
         
-        except Exception as e:
-            print("Exception occurred:")
-            print(e)
-            print(f"Skipping dataset with key {key} ...")
+        # run evoked calc on df
+        print("Processing evokeds...")
+        data = dict((i, evoked_pipeline(df_data, i, good_electrodes[key])) for i in tqdm(sorted(df_data['Subject'].unique())))
 
+        # pickle the data dict
+        output_file = os.path.join(output_folder, key + '.pickle')
+        print(f"Pickling into {output_file}...")
+        with open(output_file, 'wb') as f:
+            pickle.dump(data, f)
     
+    except Exception as e:
+        print("Exception occurred:")
+        print(e)
+        print(f"Skipping dataset with key {key} ...")
