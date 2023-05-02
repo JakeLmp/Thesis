@@ -130,6 +130,12 @@ for y_plot, dataset_key in zip(y_plotlevels, keys):
     tcs_frontal = dict((cond, stc.extract_label_time_course(ROI_front, src, mode='mean')[0])
                     for cond, stc in average_stcs.items())
 
+    # in the aurnhammer 2023 study, sampling frequency was doubled
+    # we subsample the returned arrays to match the 500 Hz frequency
+    if dataset_key == 'aurn2023':
+        tcs_temporal = dict((cond, stc[0:-1:2]) for cond, stc in tcs_temporal.items())
+        tcs_frontal = dict((cond, stc[0:-1:2]) for cond, stc in tcs_frontal.items())
+
     # less copy-pasting of code if we put it in a loop
     time_course_dict = {'temporal':tcs_temporal, 'frontal':tcs_frontal}
     

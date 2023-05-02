@@ -35,6 +35,9 @@ def evoked_pipeline(df, subject_no, good_electrodes, verbose=False):
     
     # subselection of dataset --- rest of process only with data for this subject
     df_subject = df[df['Subject'] == subject_no]
+    
+    # get the frequency from the timestamp data --- 1000ms/(stamp2-stamp1)
+    sfreq = int(1000/(df_subject['Timestamp'].values[1] - df_subject['Timestamp'].values[0]))
 
     # split into per-condition dataframes
     dfs_conditions = dict((cond, df_subject[df_subject['Condition'] == cond]) for cond in conditions.keys())
@@ -42,7 +45,7 @@ def evoked_pipeline(df, subject_no, good_electrodes, verbose=False):
 
     # create info object
     info = mne.create_info(ch_names = all_electrodes, 
-                        sfreq = 500,
+                        sfreq = sfreq,
                         ch_types = 'eeg')
     
     info['bads'] = bad_electrodes
