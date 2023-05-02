@@ -218,7 +218,8 @@ for dataset_key in keys:
             ax.grid(visible=True)
             ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
             ax.set_xlim(left=x[0], right=x[-1])
-
+            
+        axs[-1].set_xlabel('t (s)')
         fig.suptitle(f'Estimated activation in {lobe_name} lobe')
 
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_separate' + optional_filename_string + '.png')
@@ -272,6 +273,7 @@ for dataset_key in keys:
             ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
             ax.set_xlim(left=x[0], right=x[-1])
 
+        axs[-1].set_xlabel('t (s)')
         fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
 
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts_separate' + optional_filename_string + '.png')
