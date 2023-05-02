@@ -4,8 +4,8 @@ This repository contains the code written for the thesis [THESIS TITLE].
 
 Data can be found at the following repositories, and should be unpacked in the ```data``` folder:
 
-* Delogu et al. (2019) — https://github.com/hbrouwer/dbc2019rerps/releases/tag/v1.0
-* Delogu et al. (2021) — https://github.com/hbrouwer/dbc2021rerps/releases/tag/v1.0
+* Delogu et al. (2019) — https://github.com/hbrouwer/dbc2019rerps
+* Delogu et al. (2021) — https://github.com/hbrouwer/dbc2021rerps
 * Aurnhammer et al. (2021) — https://github.com/caurnhammer/PLOSONE21lmerERP
 * Aurnhammer et al. (2023) — https://github.com/caurnhammer/psyp23rerps
 
