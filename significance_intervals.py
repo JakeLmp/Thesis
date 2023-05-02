@@ -65,7 +65,7 @@ save_loc = os.path.join(os.getcwd(), 'plots', 'significance_plots')
 optional_filename_string = '_' + threshold_type
 
 # range of standard deviations we want to compare against
-std_multipliers = np.flip(np.sort([0.5, 1.5])) # descending order
+std_multipliers = np.flip(np.sort([1.0, 2.0])) # descending order
 
 # Relevant time windows
 N400_window = (.300, .500)      # most commonly seen in my literature review
@@ -75,14 +75,17 @@ P600_window = (.600, .800)      # 600 ms as a start is common, end of window deb
 # don't change this stuff
 x = np.arange(start=-0.2, stop=1.2, step=0.002)
 y_plotlevels = [0, 2, 5, 9]
-plot_kwargs = {'linewidth':20, 'linestyle':'-', 'solid_capstyle':'butt', 'alpha':0.5}
+plot_kwargs = {'linewidth':20, 
+               'linestyle':'-', 
+               'solid_capstyle':'butt', 
+               'alpha':1/len(std_multipliers)}
 window = min_count = 100
 
 # one subplot for each ROI
 fig, axs = plt.subplots(ncols=2,
                         nrows=1,
                         # sharex=True,'
-                        sharey=True,
+                        # sharey=True,
                         figsize=(15,5),
                         dpi=800)
 
@@ -186,8 +189,8 @@ for ax, lobe_name in zip(axs, ['Temporal', 'Frontal']):
     ax.axvspan(*N400_window, alpha=0.2, color='grey')
     ax.axvspan(*P600_window, alpha=0.2, color='grey')
     ax.grid(visible=True)
-
-axs[0].invert_yaxis()
+    ax.hlines([1.5, 4.5, 8.5], xmin=x[0], xmax=x[-1], colors=['grey', 'grey', 'grey'], linestyles='solid')
+    ax.set_xlabel('t (s)')
 
 y_labels = ['Delogu (2019) B-A',
             'Delogu (2019) C-A',
@@ -200,7 +203,30 @@ y_labels = ['Delogu (2019) B-A',
             'Aurnhammer (2021) D-C',
             'Aurnhammer (2023) B-A',
             'Aurnhammer (2023) C-A']
+
+effect_labels = ['P600',
+                 'Sust. N400',
+                 'N400',
+                 'N400/P600',
+                 'P600',
+                 'N400',
+                 'N400/P600',
+                 'N400/P600',
+                 'N400',
+                 'Small P600',
+                 'P600'] 
+
+axs[0].invert_yaxis()
 axs[0].set_yticks(list(range(len(y_labels))), labels=y_labels)
+axs[0].set_ylabel('Dataset/Contrast')
 
+axs[1].invert_yaxis()
+axs[1].yaxis.tick_right()
+axs[1].set_yticks(list(range(len(effect_labels))), labels=effect_labels)
+axs[1].yaxis.set_label_position("right")
+axs[1].set_ylabel('Expected effect')
 
+plt.tight_layout()
+
+fig.savefig(os.path.join(os.getcwd(), 'plots', 'significance_plots', 'significance_intervals.png'))
 # %%
