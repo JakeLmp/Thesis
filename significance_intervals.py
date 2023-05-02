@@ -206,15 +206,15 @@ y_labels = ['Delogu (2019) B-A',
 
 effect_labels = ['P600',
                  'Sust. N400',
-                 'N400',
-                 'N400/P600',
+                 'Sust. N400',
+                 'Sust. N400',
                  'P600',
-                 'N400',
+                 '>N400',
                  'N400/P600',
                  'N400/P600',
-                 'N400',
+                 '>N400',
                  'Small P600',
-                 'P600'] 
+                 'Large P600'] 
 
 axs[0].invert_yaxis()
 axs[0].set_yticks(list(range(len(y_labels))), labels=y_labels)
