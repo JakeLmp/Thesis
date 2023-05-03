@@ -222,6 +222,8 @@ for dataset_key in keys:
         axs[-1].set_xlabel('t (s)')
         fig.suptitle(f'Estimated activation in {lobe_name} lobe')
 
+        plt.tight_layout()
+
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_separate' + optional_filename_string + '.png')
         fig.savefig(file_loc)
 
