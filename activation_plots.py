@@ -85,10 +85,34 @@ else:
     print("\nSkipping ROI visualisation\n")
 
 
+# %%
 # Relevant time windows
 N400_window = (.300, .500)      # most commonly seen in my literature review
 P600_window = (.600, .800)      # 600 ms as a start is common, end of window debatable
 
+# don't display figures in interactive mode
+if interactive_mode: plt.ioff()
+
+x = np.arange(start=-0.2, stop=1.2, step=0.002)
+save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
+
+# options: 'mean', 'linear regression', 'moving window'
+threshold_type = 'linear regression'
+
+# range of standard deviations we want to compare against
+std_multipliers = np.array([1.0, 2.0])
+
+# moving window of size 200 ms
+window = min_count = 100
+
+# leave this string empty if you don't want extra info in the filenam
+# optional_filename_string = ''
+optional_filename_string = '_' + threshold_type
+
+# kwargs for threshold bands
+fill_between_kwargs = {'alpha':0.5/len(std_multipliers), 
+                       'color':'#1f77b4', 
+                       'linewidth':0}
 
 # Main loop over all available datasets
 keys = ['del2019', 'del2021', 'aurn2021', 'aurn2023']
@@ -146,25 +170,6 @@ for dataset_key in keys:
     # %%
     # Plotting the activation time series (separate plots, one figure)
 
-    # don't display figures in interactive mode
-    if interactive_mode: plt.ioff()
-
-    x = np.arange(start=-0.2, stop=1.2, step=0.002)
-    save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
-
-    # options: 'mean', 'linear regression', 'moving window'
-    threshold_type = 'linear regression'
-
-    # range of standard deviations we want to compare against
-    std_multipliers = np.array([1.0, 2.0])
-
-    # moving window of size 200 ms
-    window = min_count = 100
-
-    # leave this string empty if you don't want extra info in the filenam
-    # optional_filename_string = ''
-    optional_filename_string = '_' + threshold_type
-
     # less copy-pasting of code if we put it in a loop
     time_course_dict = {'temporal':tcs_temporal, 'frontal':tcs_frontal}
 
@@ -186,14 +191,14 @@ for dataset_key in keys:
             if threshold_type == 'mean':
                 error = std_multipliers * np.std(np.array(y))
                 ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-                for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, alpha=0.25, color='#1f77b4', linewidth=0)
+                for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, **fill_between_kwargs)
 
             # linear regression with std calculated on detrended data
             if threshold_type == 'linear regression':
                 m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
                 error = std_multipliers * np.std(np.array(y) - m*x + c)
                 ax.plot(x, m*x + c, linestyle='dotted')
-                for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, alpha=0.25, color='#1f77b4', linewidth=0)
+                for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, **fill_between_kwargs)
 
             # moving average and std
             if threshold_type == 'moving window':
@@ -202,7 +207,7 @@ for dataset_key in keys:
 
                 # we shift the x-axis by half the window size so it lines up with the actual data
                 ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-                for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, alpha=0.25, color='#1f77b4', linewidth=0)
+                for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, **fill_between_kwargs)
 
             ax.plot(x, y, label=key, color='#1f77b4')
 
@@ -242,14 +247,14 @@ for dataset_key in keys:
             if threshold_type == 'mean':
                 error = std_multipliers * np.std(np.array(y))
                 ax.hlines(y=np.mean(y), xmin=x[0], xmax=x[-1], linestyle='dotted')
-                for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, alpha=0.25, color='#1f77b4', linewidth=0)
+                for e in error: ax.fill_between(x, np.mean(y)-e, np.mean(y)+e, **fill_between_kwargs)
 
             # linear regression with std calculated on detrended data
             if threshold_type == 'linear regression':
                 m, c = np.linalg.lstsq(np.vstack([x, np.ones(len(x))]).T, y, rcond=None)[0]
                 error = std_multipliers * np.std(np.array(y) - m*x + c)
                 ax.plot(x, m*x + c, linestyle='dotted')
-                for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, alpha=0.25, color='#1f77b4', linewidth=0)
+                for e in error: ax.fill_between(x, m*x+c + e, m*x+c - e, **fill_between_kwargs)
 
             # moving average and std
             if threshold_type == 'moving window':
@@ -258,7 +263,7 @@ for dataset_key in keys:
 
                 # we shift the x-axis by half the window size so it lines up with the actual data
                 ax.plot(x - window*0.002/2, window_avg, linestyle='dotted', color='#1f77b4')
-                for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, alpha=0.25, color='#1f77b4', linewidth=0)
+                for std in window_std: ax.fill_between(x - window*0.002/2, window_avg-std, window_avg+std, **fill_between_kwargs)
 
             ax.plot(x, y, label=f'{c2} - {c1}', color='#1f77b4')
 
