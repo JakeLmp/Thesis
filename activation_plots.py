@@ -178,7 +178,7 @@ for dataset_key in keys:
         fig, axs = plt.subplots(ncols=1,
                                 nrows=len(order),
                                 sharex=True,
-                                dpi=800)
+                                dpi=600)
 
         # I want the y-axis to be consistent between the plots
         # so we're finding the max/min values of all plots together to set the ylimits
@@ -236,7 +236,7 @@ for dataset_key in keys:
         fig, axs = plt.subplots(ncols=1,
                                 nrows=len(contrasts),
                                 sharex=True,
-                                dpi=800)
+                                dpi=600)
 
         maxval, minval = 0, 0
 

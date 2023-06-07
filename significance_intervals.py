@@ -87,7 +87,7 @@ fig, axs = plt.subplots(ncols=2,
                         # sharex=True,'
                         # sharey=True,
                         figsize=(15,5),
-                        dpi=800)
+                        dpi=600)
 
 keys = ['del2019', 'del2021', 'aurn2021', 'aurn2023']
 for y_plot, dataset_key in zip(y_plotlevels, keys):

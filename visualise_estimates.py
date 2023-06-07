@@ -1,6 +1,7 @@
 # %% THIS FILE CAN ONLY BE RUN IN INTERACTIVE PYTHON
+# (jupyter notebook/IPython shell/VS Code cells)
 
-# check if we're running in interactive python (jupyter notebook/IPython shell/VS Code cells)
+# check if we're running in interactive python
 # https://discourse.jupyter.org/t/find-out-if-my-code-runs-inside-a-notebook-or-jupyter-lab/6935/4
 try:
     # get_ipython() should be automatically available in any IPython shell/notebook, but not in other versions
@@ -42,8 +43,10 @@ if interactive_mode:
                   size=(600, 600), 
                   clim=dict(kind='percent', lims=[90, 95, 99]),
                   smoothing_steps=7,
-                #   time_viewer=False,
-                  colorbar=False)
+                  time_viewer=True,
+                  colorbar=True)
+
+    i = j = k = 0
 
     # %%
     # vis all conditions
@@ -65,9 +68,18 @@ if interactive_mode:
         contrasts = [('A', 'B'), ('A', 'C')]
 
     # vis all contrasts
-    for j, (A, B) in enumerate(contrasts, start=i):
+    for j, (A, B) in enumerate(contrasts, start=i+1):
         brain = (average_stcs[B] - average_stcs[A]).plot(figure=j, **kwargs)
         brain.add_text(0.1, 0.9, f"{B} - {A}", 'title', font_size=14)
+
+    # %%
+    # or extract png's at multiple time stamps (change these variables manually to get what you want)
+    output_loc = os.path.join(os.getcwd(), 'plots', 'brain_vis_plots')
+    stamps = list(range(0,1200,100))
+    kwargs['time_viewer'] = False
+    for k, stamp in enumerate(stamps, start=j+1):
+        brain = (average_stcs['script-related'] - average_stcs['control']).copy().crop(tmin=, tmax=stamp, include_tmax=True).plot(figure=k, **kwargs)
+        brain.save_image(os.path.join(output_loc, f'{stamp}ms.png'))
 
 # %%
 # not in interactive mode
