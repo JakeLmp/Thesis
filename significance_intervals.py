@@ -6,6 +6,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import bottleneck as bn
+import pandas as pd
 
 # %%
 # Defining ROIs
@@ -71,7 +72,39 @@ std_multipliers = np.flip(np.sort([1.0, 2.0])) # descending order
 N400_window = (.300, .500)      # most commonly seen in my literature review
 P600_window = (.600, .800)      # 600 ms as a start is common, end of window debatable
 
+# a function that returns the start/stop index pairs of zero-valued intervals of a step function
+def get_interval_indices(arr):
+    """
+    Returns [start, stop) index pairs (up to, not including, stop) of step function
+    Note that inverse of arr is taken, because we want the intervals in which the step function equals 0
+    """
+    pulses = np.convolve(np.array([1,-1]), 1-np.array(arr))
+    starts = np.argwhere(pulses==1)
+    stops = np.argwhere(pulses==-1)
+    return np.hstack([starts, stops])
 
+# average length of the intervals calculated with get_interval_indices (in samples)
+def average_interval_length(arr):
+    indices = get_interval_indices(arr)
+    return np.mean(indices[:,1]-indices[:,0])
+
+# median length of the intervals calculated with get_interval_indices (in samples)
+def median_interval_length(arr):
+    indices = get_interval_indices(arr)
+    return np.median(indices[:,1]-indices[:,0])
+
+# number of times a positive interval is followed by a negative interval, and vice versa
+def number_of_switches(pos_bools, neg_bools):
+    # first put them together with pos -> 1, neg -> -1 (zeros indicate the intervals, so we invert the step functions)
+    t = np.zeros_like(pos_bools) + (1 - pos_bools) - (1 - neg_bools)
+    # now convolution with result upward step is positive pulse, downward step is negative pulse
+    pulses = np.convolve(np.array([1,-1]), t)
+    # convolve over only pulse values, if two consecutive pulses in same direction, we have a switch (two steps up/down), we should worry about boundary effects now.
+    switch_pulses = np.convolve(np.array([1,1]), pulses[pulses != 0], mode='valid')
+    # return number of switch pulses
+    return len(switch_pulses[switch_pulses != 0])
+
+# %%
 # don't change this stuff
 x = np.arange(start=-0.2, stop=1.2, step=0.002)
 y_plotlevels = [0, 2, 5, 9]
@@ -80,6 +113,7 @@ plot_kwargs = {'linewidth':20,
                'solid_capstyle':'butt', 
                'alpha':1/len(std_multipliers)}
 window = min_count = 100
+df_interval_stats = pd.DataFrame(columns=['ROI', 'Dataset', 'Contrast', 'Average', 'Median', 'Switches'])
 
 # one subplot for each ROI
 fig, axs = plt.subplots(ncols=2,
@@ -188,6 +222,16 @@ for y_plot, dataset_key in zip(y_plotlevels, keys):
                 intervals = np.ma.array(x, mask=arr)
                 ax.plot(intervals, np.full_like(intervals, fill_value=y_plot+j), c="red",
                         **plot_kwargs)
+            
+            # we only care about the lowest threshold for this
+            df_interval_stats = df_interval_stats.append({'Dataset':dataset_key, 
+                                                          'Contrast':f"({c2})-({c1})", 
+                                                          'ROI':lobe_name, 
+                                                          'Average':round(average_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1),2), 
+                                                          'Median':median_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1), 
+                                                          'Switches':number_of_switches(positive_significance_bool[-1], negative_significance_bool[-1])},
+                                                          ignore_index=True)
+
 
 for ax, lobe_name in zip(axs, ['Temporal', 'Frontal']):
     ax.set_title(f'{lobe_name}')
@@ -240,4 +284,8 @@ if not os.path.isdir(output_folder):
     os.mkdir(output_folder)
 
 fig.savefig(os.path.join(output_folder, 'significance_intervals.png'))
+# %%
+
+print(df_interval_stats)
+
 # %%
