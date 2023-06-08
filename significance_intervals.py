@@ -88,10 +88,20 @@ def average_interval_length(arr):
     indices = get_interval_indices(arr)
     return np.mean(indices[:,1]-indices[:,0])
 
-# median length of the intervals calculated with get_interval_indices (in samples)
+# same, but median length
 def median_interval_length(arr):
     indices = get_interval_indices(arr)
     return np.median(indices[:,1]-indices[:,0])
+
+# same, but minimum length
+def minimum_interval_length(arr):
+    indices = get_interval_indices(arr)
+    return np.min(indices[:,1]-indices[:,0])
+
+# same, but maximum length
+def maximum_interval_length(arr):
+    indices = get_interval_indices(arr)
+    return np.max(indices[:,1]-indices[:,0])
 
 # number of times a positive interval is followed by a negative interval, and vice versa
 def number_of_switches(pos_bools, neg_bools):
@@ -113,7 +123,7 @@ plot_kwargs = {'linewidth':20,
                'solid_capstyle':'butt', 
                'alpha':1/len(std_multipliers)}
 window = min_count = 100
-df_interval_stats = pd.DataFrame(columns=['ROI', 'Dataset', 'Contrast', 'Average', 'Median', 'Switches'])
+df_interval_stats = pd.DataFrame(columns=['ROI', 'Dataset', 'Contrast', 'Average', 'Median', 'Min', 'Max', 'Switch'])
 
 # one subplot for each ROI
 fig, axs = plt.subplots(ncols=2,
@@ -229,7 +239,9 @@ for y_plot, dataset_key in zip(y_plotlevels, keys):
                                                           'ROI':lobe_name, 
                                                           'Average':round(average_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1),2), 
                                                           'Median':median_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1), 
-                                                          'Switches':number_of_switches(positive_significance_bool[-1], negative_significance_bool[-1])},
+                                                          'Min': minimum_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1),
+                                                          'Max': maximum_interval_length(positive_significance_bool[-1] + negative_significance_bool[-1] - 1),
+                                                          'Switch':number_of_switches(positive_significance_bool[-1], negative_significance_bool[-1])},
                                                           ignore_index=True)
 
 
