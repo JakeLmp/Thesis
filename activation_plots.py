@@ -259,6 +259,12 @@ for dataset_key in keys:
 
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity.png')
         plt.savefig(file_loc, dpi=600)
+
+        # the contrasts
+        fig, axs = plt.subplots(ncols=1,
+                                nrows=len(contrasts),
+                                sharex=True,
+                                dpi=600)
         
         # and then the contrasts
         maxval, minval = 0, 0
