@@ -96,6 +96,9 @@ if interactive_mode: plt.ioff()
 x = np.arange(start=-0.2, stop=1.2, step=0.002)
 save_loc = os.path.join(os.getcwd(), 'plots', 'activation_plots')
 
+if not os.path.isdir(save_loc):
+    os.mkdir(save_loc)
+
 # options: 'mean', 'linear regression', 'moving window'
 threshold_type = 'linear regression'
 
@@ -225,7 +228,8 @@ for dataset_key in keys:
             ax.set_xlim(left=x[0], right=x[-1])
             
         axs[-1].set_xlabel('t (s)')
-        fig.suptitle(f'Estimated activation in {lobe_name} lobe')
+        fig.suptitle('', y=0.5) # spoof location of suptitle to reduce bboxes
+        # fig.suptitle(f'Estimated activation in {lobe_name} lobe')
 
         plt.tight_layout()
 
@@ -238,6 +242,25 @@ for dataset_key in keys:
                                 sharex=True,
                                 dpi=600)
 
+        # now the same thing, but lines in one plot and without the regression/bands
+        plt.figure(np.random.randint(10, high=100000))
+        for key in order:
+            plt.plot(x, tcs[key], label=key)
+        plt.legend(loc='upper left')
+        # plt.title(f'Estimated activation in {lobe_name} lobe')
+        plt.ylim(minval*1.1, maxval*1.1)
+        plt.xlim(x[0], x[-1])
+        plt.xlabel('t (s)')
+        plt.axvspan(*N400_window, alpha=0.2, color='grey')
+        plt.axvspan(*P600_window, alpha=0.2, color='grey')
+        plt.grid(visible=True)
+
+        plt.tight_layout()
+
+        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity.png')
+        plt.savefig(file_loc, dpi=600)
+        
+        # and then the contrasts
         maxval, minval = 0, 0
 
         for ax, (c1, c2) in zip(axs, contrasts):
@@ -281,7 +304,32 @@ for dataset_key in keys:
             ax.set_xlim(left=x[0], right=x[-1])
 
         axs[-1].set_xlabel('t (s)')
-        fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
+        fig.suptitle('', y=0.5) # spoof location of suptitle to reduce bboxes
+        # fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
+
+        plt.tight_layout()
 
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts_separate' + optional_filename_string + '.png')
         fig.savefig(file_loc)
+
+        # now the same thing, but lines in one plot and without the regression/bands
+        plt.figure(np.random.randint(10, high=100000))
+        for c1, c2 in contrasts:
+            plt.plot(x, tcs[c2] - tcs[c1], label=f'{c2} - {c1}')
+        # plt.plot(x, np.vstack([tcs[c2] - tcs[c1] for c1, c2 in contrasts]))
+        plt.legend(loc='upper left')
+        # plt.title(f'Contrasted estimated activation in {lobe_name} lobe')
+        plt.ylim(minval*1.1, maxval*1.1)
+        plt.xlim(x[0], x[-1])
+        plt.xlabel('t (s)')
+        plt.axvspan(*N400_window, alpha=0.2, color='grey')
+        plt.axvspan(*P600_window, alpha=0.2, color='grey')
+        plt.grid(visible=True)
+
+        plt.tight_layout()
+
+        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts.png')
+        plt.savefig(file_loc, dpi=600)
+
+    # close all figures and move on to the next dataset
+    plt.close('all')
