@@ -1,6 +1,6 @@
 # Thesis
 
-This repository contains the code written for the thesis [THESIS TITLE].
+This repository contains the code written for the master's thesis "On the Reliability of Minimum-Norm Source Estimation in Studies of the Event-Related Potential — An investigation of the generators of the N400 and P600 components of the ERP".
 
 Data can be found at the following repositories, and should be unpacked in the ```data``` folder:
 
