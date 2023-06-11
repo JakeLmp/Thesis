@@ -5,6 +5,7 @@ if __name__ == '__main__':
     cwd = os.getcwd()
     scripts = [
         'data_preprocessing.py',
+        'recreate_ERPs.py',
         'mne_processes.py',
         'activation_plots.py',
         'significance_intervals.py'
