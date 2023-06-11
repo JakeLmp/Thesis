@@ -177,17 +177,23 @@ for dataset_key in keys:
     time_course_dict = {'temporal':tcs_temporal, 'frontal':tcs_frontal}
 
     for lobe_name, tcs in time_course_dict.items():
-        # just the activations
-        fig, axs = plt.subplots(ncols=1,
-                                nrows=len(order),
-                                sharex=True,
-                                dpi=600)
+        
+        fig = plt.figure(figsize=(9, 4), dpi=600)
+
+        # fig.add_subplot(rows, cols, pos)
+        ax1 = fig.add_subplot(1, 2, 1) # contains combined time course plot
+        subaxs = [fig.add_subplot(len(order), 2, len(order)*2)] # first time course plot
+        for i in range(len(order)*2, 1, -2):
+            subaxs.append(fig.add_subplot(len(order), 2, i, sharex=subaxs[0])) # other time course plots
+        
+        # axes were created in reverse, put them in the right order
+        subaxs = list(reversed(subaxs))
 
         # I want the y-axis to be consistent between the plots
         # so we're finding the max/min values of all plots together to set the ylimits
         maxval, minval = 0, 0
 
-        for ax, key in zip(axs, order):
+        for ax, key in zip(subaxs, order):
             y = tcs[key]
 
             # simple mean with std interval
@@ -218,58 +224,53 @@ for dataset_key in keys:
             if max(y) > maxval: maxval = max(y)
             if min(y) < minval: minval = min(y)
 
-        for ax in axs:
+        for ax in subaxs:
             ax.legend(loc='upper left')
             ax.axvspan(*N400_window, alpha=0.2, color='grey')
             ax.axvspan(*P600_window, alpha=0.2, color='grey')
 
             ax.grid(visible=True)
             ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-            ax.set_xlim(left=x[0], right=x[-1])
-            
-        axs[-1].set_xlabel('t (s)')
+        
+        subaxs[-1].set_xlim(left=x[0], right=x[-1])
+        subaxs[-1].set_xlabel('t (s)')
+
+        # now the same thing, but lines in one plot and without the regression/bands
+        for key in order:
+            ax1.plot(x, tcs[key], label=key)
+        ax1.legend(loc='upper left')
+        # plt.title(f'Estimated activation in {lobe_name} lobe')
+        ax1.set_ylim(minval*1.1, maxval*1.1)
+        ax1.set_xlim(x[0], x[-1])
+        ax1.set_xlabel('t (s)')
+        ax1.axvspan(*N400_window, alpha=0.2, color='grey')
+        ax1.axvspan(*P600_window, alpha=0.2, color='grey')
+        ax1.grid(visible=True)
+
         fig.suptitle('', y=0.5) # spoof location of suptitle to reduce bboxes
         # fig.suptitle(f'Estimated activation in {lobe_name} lobe')
 
         plt.tight_layout()
 
-        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_separate' + optional_filename_string + '.png')
+        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity.png')
         fig.savefig(file_loc)
 
         # the contrasts
-        fig, axs = plt.subplots(ncols=1,
-                                nrows=len(contrasts),
-                                sharex=True,
-                                dpi=600)
+        fig = plt.figure(figsize=(9, 4), dpi=600)
 
-        # now the same thing, but lines in one plot and without the regression/bands
-        plt.figure(np.random.randint(10, high=100000))
-        for key in order:
-            plt.plot(x, tcs[key], label=key)
-        plt.legend(loc='upper left')
-        # plt.title(f'Estimated activation in {lobe_name} lobe')
-        plt.ylim(minval*1.1, maxval*1.1)
-        plt.xlim(x[0], x[-1])
-        plt.xlabel('t (s)')
-        plt.axvspan(*N400_window, alpha=0.2, color='grey')
-        plt.axvspan(*P600_window, alpha=0.2, color='grey')
-        plt.grid(visible=True)
-
-        plt.tight_layout()
-
-        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity.png')
-        plt.savefig(file_loc, dpi=600)
-
-        # the contrasts
-        fig, axs = plt.subplots(ncols=1,
-                                nrows=len(contrasts),
-                                sharex=True,
-                                dpi=600)
+        # fig.add_subplot(rows, cols, pos)
+        ax1 = fig.add_subplot(1, 2, 1) # contains combined time course plot
+        subaxs = [fig.add_subplot(len(contrasts), 2, len(contrasts)*2)] # first time course plot
+        for i in range(len(contrasts)*2, 1, -2):
+            subaxs.append(fig.add_subplot(len(contrasts), 2, i, sharex=subaxs[0])) # other time course plots
+        
+        # axes were created in reverse, put them in the right order
+        subaxs = list(reversed(subaxs))
         
         # and then the contrasts
         maxval, minval = 0, 0
 
-        for ax, (c1, c2) in zip(axs, contrasts):
+        for ax, (c1, c2) in zip(subaxs, contrasts):
             y = tcs[c2] - tcs[c1]
 
             # simple mean with std interval
@@ -300,42 +301,37 @@ for dataset_key in keys:
             if max(y) > maxval: maxval = max(y)
             if min(y) < minval: minval = min(y)
 
-        for ax in axs:
+        for ax in subaxs:
             ax.legend(loc='upper left')
             ax.axvspan(*N400_window, alpha=0.2, color='grey')
             ax.axvspan(*P600_window, alpha=0.2, color='grey')
 
             ax.grid(visible=True)
             ax.set_ylim(bottom=minval*1.1, top=maxval*1.1)
-            ax.set_xlim(left=x[0], right=x[-1])
 
-        axs[-1].set_xlabel('t (s)')
+        subaxs[-1].set_xlim(left=x[0], right=x[-1])
+        subaxs[-1].set_xlabel('t (s)')
+
+        # now the same thing, but lines in one plot and without the regression/bands
+        for c1, c2 in contrasts:
+            ax1.plot(x, tcs[c2] - tcs[c1], label=f'{c2} - {c1}')
+        # plt.plot(x, np.vstack([tcs[c2] - tcs[c1] for c1, c2 in contrasts]))
+        ax1.legend(loc='upper left')
+        # plt.title(f'Contrasted estimated activation in {lobe_name} lobe')
+        ax1.set_ylim(minval*1.1, maxval*1.1)
+        ax1.set_xlim(x[0], x[-1])
+        ax1.set_xlabel('t (s)')
+        ax1.axvspan(*N400_window, alpha=0.2, color='grey')
+        ax1.axvspan(*P600_window, alpha=0.2, color='grey')
+        ax1.grid(visible=True)
+
         fig.suptitle('', y=0.5) # spoof location of suptitle to reduce bboxes
         # fig.suptitle(f'Contrasted estimated activation in {lobe_name} lobe')
 
         plt.tight_layout()
 
-        file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts_separate' + optional_filename_string + '.png')
-        fig.savefig(file_loc)
-
-        # now the same thing, but lines in one plot and without the regression/bands
-        plt.figure(np.random.randint(10, high=100000))
-        for c1, c2 in contrasts:
-            plt.plot(x, tcs[c2] - tcs[c1], label=f'{c2} - {c1}')
-        # plt.plot(x, np.vstack([tcs[c2] - tcs[c1] for c1, c2 in contrasts]))
-        plt.legend(loc='upper left')
-        # plt.title(f'Contrasted estimated activation in {lobe_name} lobe')
-        plt.ylim(minval*1.1, maxval*1.1)
-        plt.xlim(x[0], x[-1])
-        plt.xlabel('t (s)')
-        plt.axvspan(*N400_window, alpha=0.2, color='grey')
-        plt.axvspan(*P600_window, alpha=0.2, color='grey')
-        plt.grid(visible=True)
-
-        plt.tight_layout()
-
         file_loc = os.path.join(save_loc, dataset_key + f'_{lobe_name}_activity_contrasts.png')
-        plt.savefig(file_loc, dpi=600)
+        fig.savefig(file_loc)
 
     # close all figures and move on to the next dataset
     plt.close('all')
